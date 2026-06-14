@@ -133,8 +133,44 @@ const TEAM_DATA = {
 
 const TEAM_BY_NAME = buildTeamNameIndex();
 
+function demoMatchesJson() {
+  const now = new Date();
+  const liveKickoff = new Date(now.getTime() - 35 * 60 * 1000).toISOString();
+  const finishedKickoff = new Date(now.getTime() - 3 * 60 * 60 * 1000).toISOString();
+  const scheduledKickoff = new Date(now.getTime() + 3 * 60 * 60 * 1000).toISOString();
+
+  return JSON.stringify({
+    matches: [
+      {
+        kickoff: finishedKickoff,
+        home: 'Brazil',
+        away: 'Morocco',
+        status: 'finished',
+        homeScore: 2,
+        awayScore: 1,
+      },
+      {
+        kickoff: liveKickoff,
+        home: 'Qatar',
+        away: 'Switzerland',
+        status: 'live',
+        homeScore: 1,
+        awayScore: 1,
+      },
+      {
+        kickoff: scheduledKickoff,
+        home: 'Saudi Arabia',
+        away: 'Uruguay',
+        status: 'scheduled',
+      },
+    ],
+  });
+}
+
 export default async function(ctx) {
-  const env = ctx.env || {};
+  const env = Object.assign({}, ctx.env || {}, {
+    MATCHES_JSON: demoMatchesJson(),
+  });
   const now = new Date();
 
   let state;
