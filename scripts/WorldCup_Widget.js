@@ -9,7 +9,7 @@ const COLORS = {
   faint: { light: '#8A949E', dark: '#7F8A94' },
   accent: { light: '#0A7A5A', dark: '#35D399' },
   trophy: { light: '#D4A017', dark: '#FFD60A' },
-  live: { light: '#B45309', dark: '#FFD166' },
+  live: { light: '#D70015', dark: '#FF453A' },
   finished: { light: '#475569', dark: '#CBD5E1' },
   error: { light: '#D70015', dark: '#FF453A' },
 };
@@ -806,7 +806,7 @@ function cardMatchRow(match) {
       rowCell(formatTime(match.kickoff), {
         width: MATCH_GRID_WIDTH.time,
         font: matchFont('medium', 'Menlo'),
-        color: match.status === 'live' ? COLORS.live : COLORS.muted,
+        color: COLORS.muted,
         align: 'left',
       }),
       rowCell(matchStatusLine(match), {
@@ -824,7 +824,7 @@ function cardMatchRow(match) {
       rowCell(scoreOrVs(match), {
         width: MATCH_GRID_WIDTH.score,
         font: matchFont('bold'),
-        color: match.status === 'live' ? COLORS.live : COLORS.text,
+        color: COLORS.text,
         align: 'center',
       }),
       rowCell(awayDisplay(match), {
@@ -844,7 +844,7 @@ function matchRow(match, showTime) {
       type: 'text',
       text: formatTime(match.kickoff),
       font: matchFont('medium', 'Menlo'),
-      textColor: match.status === 'live' ? COLORS.live : COLORS.muted,
+      textColor: COLORS.muted,
       maxLines: 1,
       minScale: 0.72,
     });
@@ -911,13 +911,13 @@ function matchFont(weight, family) {
 }
 
 function teamLine(match) {
-  return homeDisplay(match) + ' vs ' + awayDisplay(match);
+  return homeDisplay(match) + 'vs' + awayDisplay(match);
 }
 
 function matchLine(match) {
   const score = scoreText(match);
   if (score && (match.status === 'finished' || match.status === 'live')) {
-    return homeDisplay(match) + ' ' + score + ' ' + awayDisplay(match);
+    return homeDisplay(match) + score + awayDisplay(match);
   }
   return teamLine(match);
 }
@@ -951,10 +951,7 @@ function statusText(match) {
 
 function matchStatusLine(match) {
   if (match.status === 'finished') return '已结束';
-  if (match.status === 'live') {
-    const minute = statusText(match).replace('进行中', '').trim();
-    return '进行中' + (minute ? ' ' + minute : '');
-  }
+  if (match.status === 'live') return '进行中';
   if (match.status === 'other') return '待定';
   return '未开赛';
 }
@@ -1105,11 +1102,11 @@ function normalizeLookup(value) {
 }
 
 function homeDisplay(match) {
-  return match.home + (match.homeFlag ? ' ' + match.homeFlag : '');
+  return match.home + (match.homeFlag ? match.homeFlag : '');
 }
 
 function awayDisplay(match) {
-  return (match.awayFlag ? match.awayFlag + ' ' : '') + match.away;
+  return (match.awayFlag ? match.awayFlag : '') + match.away;
 }
 
 function flagEmoji(alpha2) {
