@@ -25,6 +25,8 @@ const MATCH_GRID_WIDTH = {
   date: 48,
   time: 42,
   status: 42,
+  home: 112,
+  score: 34,
 };
 
 const TEAM_DATA = {
@@ -812,15 +814,37 @@ function cardMatchRow(match) {
         color: statusColor(match),
         align: 'left',
       }),
-      {
-        type: 'text',
-        text: matchLine(match),
+      matchCells(match),
+    ],
+  };
+}
+
+function matchCells(match) {
+  return {
+    type: 'stack',
+    direction: 'row',
+    alignItems: 'center',
+    gap: 3,
+    flex: 1,
+    children: [
+      rowCell(homeDisplay(match), {
+        width: MATCH_GRID_WIDTH.home,
         font: matchFont('semibold'),
-        textColor: COLORS.text,
+        color: COLORS.text,
+        align: 'right',
+      }),
+      rowCell(scoreOrVs(match), {
+        width: MATCH_GRID_WIDTH.score,
+        font: matchFont('bold'),
+        color: match.status === 'live' ? COLORS.live : COLORS.text,
+        align: 'center',
+      }),
+      rowCell(awayDisplay(match), {
         flex: 1,
-        maxLines: 1,
-        minScale: 0.62,
-      },
+        font: matchFont('semibold'),
+        color: COLORS.text,
+        align: 'left',
+      }),
     ],
   };
 }
@@ -908,6 +932,12 @@ function matchLine(match) {
     return homeDisplay(match) + ' ' + score + ' ' + awayDisplay(match);
   }
   return teamLine(match);
+}
+
+function scoreOrVs(match) {
+  const score = scoreText(match);
+  if (score && (match.status === 'finished' || match.status === 'live')) return score;
+  return 'vs';
 }
 
 function lineText(match, withTime) {
