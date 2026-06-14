@@ -573,16 +573,21 @@ function renderMedium(days, state, now) {
 function renderLarge(days, state, now) {
   const children = [
     header('世界杯赛程', now),
+    { type: 'spacer', length: 8 },
   ];
 
+  const scheduleRows = [];
   days.forEach(function(day) {
-    children.push(daySection(day, 4));
+    scheduleRows.push(dayHeader(day));
+    scheduleRows.push.apply(scheduleRows, matchRows(day.matches, 4, true));
   });
 
-  return shell(now, state, children, 14);
+  children.push.apply(children, interleaveSpacers(scheduleRows));
+
+  return shell(now, state, children, 14, 0);
 }
 
-function shell(now, state, children, padding) {
+function shell(now, state, children, padding, gap) {
   const body = children.slice();
 
   if (state.error) {
@@ -600,7 +605,7 @@ function shell(now, state, children, padding) {
     type: 'widget',
     refreshAfter: nextRefresh(now),
     padding,
-    gap: 7,
+    gap: gap == null ? 7 : gap,
     backgroundColor: COLORS.background,
     children: body,
   };
@@ -647,9 +652,6 @@ function dayColumn(day, limit) {
     direction: 'column',
     gap: 5,
     flex: 1,
-    padding: [8, 8, 8, 8],
-    backgroundColor: COLORS.card,
-    borderRadius: 8,
     children: [
       {
         type: 'text',
@@ -662,36 +664,26 @@ function dayColumn(day, limit) {
   };
 }
 
-function daySection(day, limit) {
+function dayHeader(day) {
   return {
     type: 'stack',
-    direction: 'column',
-    gap: 4,
-    padding: [8, 10, 8, 10],
-    backgroundColor: COLORS.card,
-    borderRadius: 8,
+    direction: 'row',
+    alignItems: 'center',
     children: [
       {
-        type: 'stack',
-        direction: 'row',
-        alignItems: 'center',
-        children: [
-          {
-            type: 'text',
-            text: day.title + ' ' + day.dateLabel,
-            font: { size: FONT_SIZE.dayTitle, weight: 'bold' },
-            textColor: COLORS.text,
-          },
-          { type: 'spacer' },
-          {
-            type: 'text',
-            text: day.matches.length + ' 场',
-            font: { size: FONT_SIZE.dayCount, weight: 'medium' },
-            textColor: COLORS.muted,
-          },
-        ],
+        type: 'text',
+        text: day.title + ' ' + day.dateLabel,
+        font: { size: FONT_SIZE.dayTitle, weight: 'bold' },
+        textColor: COLORS.text,
       },
-    ].concat(matchRows(day.matches, limit, true)),
+      { type: 'spacer' },
+      {
+        type: 'text',
+        text: day.matches.length + ' 场',
+        font: { size: FONT_SIZE.dayCount, weight: 'medium' },
+        textColor: COLORS.muted,
+      },
+    ],
   };
 }
 
@@ -722,6 +714,17 @@ function matchRows(matches, limit, showTime) {
   }
 
   return rows;
+}
+
+function interleaveSpacers(rows) {
+  const result = [];
+
+  for (let i = 0; i < rows.length; i += 1) {
+    if (i > 0) result.push({ type: 'spacer' });
+    result.push(rows[i]);
+  }
+
+  return result;
 }
 
 function matchRow(match, showTime) {
