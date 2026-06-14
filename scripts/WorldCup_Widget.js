@@ -25,9 +25,9 @@ const MATCH_GRID_WIDTH = {
   date: 38,
   time: 36,
   status: 30,
-  home: 58,
+  home: 96,
   score: 28,
-  away: 82,
+  away: 72,
 };
 
 const TEAM_DATA = {
