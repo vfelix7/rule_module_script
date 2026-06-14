@@ -23,11 +23,11 @@ const FONT_SIZE = {
 
 const MATCH_GRID_WIDTH = {
   date: 38,
-  time: 36,
-  status: 30,
-  home: 96,
+  time: 40,
+  status: 40,
+  home: 76,
   score: 28,
-  away: 72,
+  away: 76,
 };
 
 const TEAM_DATA = {
