@@ -1,12 +1,12 @@
 scriptings:
   - generic:
       name: "world-cup-widget"
-      script_url: "https://raw.githubusercontent.com/FelixPang/rule_module_script/main/egern/scripts/worldcup/WorldCup_Widget.js"
+      script_url: "https://raw.githubusercontent.com/FelixPang/rule_module_script/main/egern/scripts/WorldCup_Widget.js"
       timeout: 20
   # 演示进行中红色效果，可临时把 widget 的 script_name 改成 world-cup-widget-live-demo。
   - generic:
       name: "world-cup-widget-live-demo"
-      script_url: "https://raw.githubusercontent.com/FelixPang/rule_module_script/main/egern/scripts/worldcup/WorldCup_Widget_Live_Demo.js"
+      script_url: "https://raw.githubusercontent.com/FelixPang/rule_module_script/main/egern/scripts/WorldCup_Widget_Live_Demo.js"
       timeout: 20
 
 widgets:

@@ -6,7 +6,7 @@ Egern and Surge rules, modules, and scripts.
 
 ### World Cup Schedule
 
-- Script: `egern/scripts/worldcup/WorldCup_Widget.js`
+- Script: `egern/scripts/WorldCup_Widget.js`
 - Config snippet: `configs/WorldCup_Widget.yaml`
 - Surge module: `surge/module/WorldCup_Surge.sgmodule`
 - Data source: ESPN FIFA World Cup (`fifa.world`)
@@ -27,4 +27,4 @@ https://raw.githubusercontent.com/FelixPang/rule_module_script/main/surge/module
 
 ### QWeather
 
-- Script: `egern/scripts/qweather/QWeather_Widget.js`
+- Script: `egern/scripts/QWeather_Widget.js`
