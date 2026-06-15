@@ -6,4 +6,4 @@
 世界杯赛程 = script-name=world-cup-schedule-panel,update-interval=600
 
 [Script]
-world-cup-schedule-panel = type=generic,timeout=20,script-path=https://raw.githubusercontent.com/FelixPang/rule_module_script/main/scripts/WorldCup_Surge_Panel.js
+world-cup-schedule-panel = type=generic,timeout=20,script-path=https://raw.githubusercontent.com/FelixPang/rule_module_script/main/surge/scripts/WorldCup_Surge_Panel.js
