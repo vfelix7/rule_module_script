@@ -22,7 +22,7 @@ The widget shows yesterday, today, and tomorrow in Beijing time. The default ESP
 Surge panel module:
 
 ```text
-https://raw.githubusercontent.com/FelixPang/rule_module_script/main/surge/module/WorldCup_Surge.sgmodule
+https://raw.githubusercontent.com/FelixPang/rule_module_script/master/surge/module/WorldCup_Surge.sgmodule
 ```
 
 ### QWeather
