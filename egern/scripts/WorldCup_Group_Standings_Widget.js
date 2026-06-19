@@ -12,10 +12,13 @@ const COLORS = {
   muted: { light: '#68737D', dark: '#A7B0B8' },
   faint: { light: '#8A949E', dark: '#7F8A94' },
   accent: { light: '#0A7A5A', dark: '#35D399' },
-  qualify: { light: '#0A7A5A', dark: '#35D399' },
-  qualifyBg: { light: '#E6F4EF', dark: '#17352B' },
-  pending: { light: '#B7791F', dark: '#FFD166' },
-  pendingBg: { light: '#FFF4D6', dark: '#3A2E16' },
+  panelGreen: { light: '#5DBA72', dark: '#2F8D58' },
+  panelGreenDeep: { light: '#43A85F', dark: '#267749' },
+  table: { light: '#FFFFFF', dark: '#172119' },
+  qualify: { light: '#43A85F', dark: '#6EE7A2' },
+  qualifyBg: { light: '#EDF8F0', dark: '#1B3825' },
+  pending: { light: '#747C84', dark: '#B8C0C8' },
+  pendingBg: { light: '#F4F4F4', dark: '#2A2E32' },
   trophy: { light: '#D4A017', dark: '#FFD60A' },
   error: { light: '#D70015', dark: '#FF453A' },
 };
@@ -613,15 +616,11 @@ function renderSmall(state, env, now) {
   const selected = selectedGroupState(state.groups, env);
   return {
     type: 'widget',
-    padding: 12,
-    gap: 8,
-    backgroundColor: COLORS.background,
+    padding: 0,
+    backgroundColor: COLORS.panelGreen,
     refreshAfter: refreshAfter(now, env),
     children: [
-      header('积分榜', now, true),
-      state.error ? null : groupSelector(selected.groups, selected.group, true, env),
-      state.error ? errorText(state.error) : groupCard(selected.group, true),
-      legend(true),
+      state.error ? errorPanel(state.error, true) : standingsPanel(selected.group, true),
     ].filter(Boolean),
   };
 }
@@ -631,102 +630,39 @@ function renderTable(state, env, now, family) {
   const compact = family === 'systemMedium';
   return {
     type: 'widget',
-    padding: 14,
-    gap: 8,
-    backgroundColor: COLORS.background,
+    padding: 0,
+    backgroundColor: COLORS.panelGreen,
     refreshAfter: refreshAfter(now, env),
     children: [
-      header('世界杯小组积分', now, false),
-      state.error ? null : groupSelector(selected.groups, selected.group, compact, env),
-      state.error ? errorText(state.error) : groupCard(selected.group, compact),
-      legend(false),
+      state.error ? errorPanel(state.error, compact) : standingsPanel(selected.group, compact),
     ].filter(Boolean),
   };
 }
 
-function groupSelector(groups, activeGroup, compact, env) {
-  if (!groups.length) return null;
-  return {
-    type: 'stack',
-    direction: 'row',
-    gap: compact ? 4 : 5,
-    children: groups.map(function(group) {
-      const active = activeGroup && group.label === activeGroup.label;
-      return {
-        type: 'stack',
-        width: compact ? 20 : 24,
-        padding: compact ? [3, 0, 3, 0] : [4, 0, 4, 0],
-        borderRadius: 6,
-        backgroundColor: active ? COLORS.accent : COLORS.cardSubtle,
-        url: groupTabUrl(group, env),
-        children: [
-          text(groupTabText(group.label), { size: compact ? 9 : 10, weight: 'bold' }, active ? '#FFFFFF' : COLORS.muted, {
-            textAlign: 'center',
-            maxLines: 1,
-            minScale: 0.7,
-          }),
-        ],
-      };
-    }),
-  };
-}
-
-function groupTabUrl(group, env) {
-  if (!env.GROUP_URL_TEMPLATE) return undefined;
-  return String(env.GROUP_URL_TEMPLATE).replace(/\{group\}/g, encodeURIComponent(groupTabText(group.label)));
-}
-
-function groupTabText(label) {
-  const match = String(label || '').match(/([A-L])组/);
-  return match ? match[1] : String(label || '').replace(/小组|组/g, '').slice(0, 2);
-}
-
-function legend(compact) {
-  return {
-    type: 'stack',
-    direction: 'row',
-    gap: 10,
-    children: [
-      legendItem('出线区', COLORS.qualify, compact),
-      legendItem('待定区', COLORS.pending, compact),
-      { type: 'spacer' },
-    ],
-  };
-}
-
-function legendItem(label, color, compact) {
-  return {
-    type: 'stack',
-    direction: 'row',
-    alignItems: 'center',
-    gap: 4,
-    children: [
-      { type: 'stack', width: 7, height: 7, borderRadius: 3.5, backgroundColor: color, children: [] },
-      text(label, { size: compact ? 8 : 9, weight: 'medium' }, COLORS.faint, { maxLines: 1 }),
-    ],
-  };
-}
-
-function groupCard(group, compact) {
-  if (!group) return emptyText();
+function standingsPanel(group, compact) {
+  if (!group) return emptyPanel(compact);
   return {
     type: 'stack',
     direction: 'column',
-    gap: compact ? 3 : 4,
-    padding: compact ? [7, 8, 7, 8] : [8, 9, 8, 9],
-    backgroundColor: COLORS.card,
-    borderRadius: 10,
+    gap: compact ? 8 : 10,
+    padding: compact ? [12, 10, 10, 10] : [18, 14, 14, 14],
+    backgroundColor: COLORS.panelGreen,
     children: [
-      {
-        type: 'stack',
-        direction: 'row',
-        alignItems: 'center',
-        children: [
-          text(group.label, { size: compact ? 10 : 11, weight: 'bold' }, COLORS.text, { maxLines: 1 }),
-          { type: 'spacer' },
-          text('积分', { size: 9, weight: 'semibold' }, COLORS.faint, { width: 28, textAlign: 'right' }),
-        ],
-      },
+      text(group.label, { size: compact ? 16 : 23, weight: 'bold' }, '#FFFFFF', { maxLines: 1, minScale: 0.75 }),
+      standingsTable(group, compact),
+    ],
+  };
+}
+
+function standingsTable(group, compact) {
+  return {
+    type: 'stack',
+    direction: 'column',
+    gap: 0,
+    padding: compact ? [8, 8, 8, 8] : [12, 12, 12, 12],
+    backgroundColor: COLORS.table,
+    borderRadius: compact ? 10 : 14,
+    children: [
       tableHeader(compact),
       ...group.rows.slice(0, 4).map(function(row) {
         return standingRow(row, compact);
@@ -736,79 +672,104 @@ function groupCard(group, compact) {
 }
 
 function tableHeader(compact) {
-  const size = compact ? 8 : 9;
+  const size = compact ? 9 : 12;
   return {
     type: 'stack',
     direction: 'row',
     alignItems: 'center',
+    padding: compact ? [0, 0, 6, 0] : [0, 0, 10, 0],
     children: [
-      text('#', { size, weight: 'medium' }, COLORS.faint, { width: 14 }),
-      text('球队', { size, weight: 'medium' }, COLORS.faint, { flex: 1 }),
-      text('赛', { size, weight: 'medium' }, COLORS.faint, { width: 18, textAlign: 'center' }),
-      text('胜/平/负', { size, weight: 'medium' }, COLORS.faint, { width: compact ? 46 : 54, textAlign: 'center', minScale: 0.6 }),
-      text('进/失', { size, weight: 'medium' }, COLORS.faint, { width: compact ? 36 : 44, textAlign: 'center', minScale: 0.6 }),
-      text('积分', { size, weight: 'medium' }, COLORS.faint, { width: compact ? 26 : 30, textAlign: 'right' }),
+      text('球队', { size, weight: 'medium' }, COLORS.faint, { flex: 1, maxLines: 1 }),
+      text('场次', { size, weight: 'medium' }, COLORS.faint, { width: compact ? 28 : 42, textAlign: 'center', maxLines: 1, minScale: 0.55 }),
+      text('胜/平/负', { size, weight: 'medium' }, COLORS.faint, { width: compact ? 52 : 72, textAlign: 'center', maxLines: 1, minScale: 0.55 }),
+      text('进/失', { size, weight: 'medium' }, COLORS.faint, { width: compact ? 36 : 52, textAlign: 'center', maxLines: 1, minScale: 0.55 }),
+      text('积分', { size, weight: 'medium' }, COLORS.faint, { width: compact ? 28 : 42, textAlign: 'right', maxLines: 1, minScale: 0.6 }),
     ],
   };
 }
 
 function standingRow(row, compact) {
-  const size = compact ? 8 : 9;
+  const size = compact ? 9 : 12;
   const zone = row.rank <= 2 ? 'qualify' : row.rank === 3 ? 'pending' : 'normal';
-  const zoneColor = zone === 'qualify' ? COLORS.qualify : zone === 'pending' ? COLORS.pending : COLORS.faint;
   const zoneBg = zone === 'qualify' ? COLORS.qualifyBg : zone === 'pending' ? COLORS.pendingBg : undefined;
   return {
     type: 'stack',
     direction: 'row',
     alignItems: 'center',
-    gap: 3,
-    padding: compact ? [2, 4, 2, 0] : [3, 5, 3, 0],
-    borderRadius: 6,
+    padding: compact ? [5, 0, 5, 0] : [9, 0, 9, 0],
     backgroundColor: zoneBg,
     children: [
-      { type: 'stack', width: 3, height: compact ? 12 : 14, borderRadius: 2, backgroundColor: zoneColor, children: [] },
-      text(String(row.rank), { size, weight: row.rank <= 3 ? 'bold' : 'medium' }, zone === 'normal' ? COLORS.muted : zoneColor, { width: 12, maxLines: 1 }),
-      text((row.flag || '') + row.team, { size, weight: 'semibold' }, COLORS.text, { flex: 1, maxLines: 1, minScale: 0.45 }),
-      text(String(row.played), { size, weight: 'medium' }, COLORS.muted, { width: 18, textAlign: 'center', maxLines: 1 }),
-      text(row.wins + '/' + row.draws + '/' + row.losses, { size, weight: 'medium' }, COLORS.muted, { width: compact ? 46 : 54, textAlign: 'center', maxLines: 1, minScale: 0.55 }),
-      text(row.goalsFor + '/' + row.goalsAgainst, { size, weight: 'medium' }, COLORS.muted, { width: compact ? 36 : 44, textAlign: 'center', maxLines: 1, minScale: 0.55 }),
-      text(String(row.points), { size, weight: 'bold' }, COLORS.text, { width: compact ? 26 : 30, textAlign: 'right', maxLines: 1 }),
+      rankCell(row.rank, compact),
+      text((row.flag || '') + '  ' + row.team, { size, weight: 'semibold' }, COLORS.text, { flex: 1, maxLines: 1, minScale: 0.55 }),
+      text(String(row.played), { size, weight: 'medium' }, COLORS.muted, { width: compact ? 28 : 42, textAlign: 'center', maxLines: 1 }),
+      text(row.wins + ' / ' + row.draws + ' / ' + row.losses, { size, weight: 'medium' }, COLORS.muted, { width: compact ? 52 : 72, textAlign: 'center', maxLines: 1, minScale: 0.5 }),
+      text(row.goalsFor + ' / ' + row.goalsAgainst, { size, weight: 'medium' }, COLORS.muted, { width: compact ? 36 : 52, textAlign: 'center', maxLines: 1, minScale: 0.55 }),
+      text(String(row.points), { size, weight: 'bold' }, COLORS.text, { width: compact ? 28 : 42, textAlign: 'right', maxLines: 1 }),
     ],
   };
 }
 
-function header(title, now, compact) {
-  return {
-    type: 'stack',
-    direction: 'row',
-    alignItems: 'center',
-    children: [
-      { type: 'image', src: 'sf-symbol:trophy.fill', width: compact ? 13 : 15, height: compact ? 13 : 15, color: COLORS.trophy },
-      { type: 'spacer', length: 6 },
-      text(title, { size: compact ? 12 : 14, weight: 'bold' }, COLORS.text, { maxLines: 1, minScale: 0.65 }),
-      { type: 'spacer' },
-      text('更新 ' + formatTime(now), { size: compact ? 9 : 10, weight: 'medium' }, COLORS.muted, { maxLines: 1, minScale: 0.6 }),
-    ],
-  };
-}
-
-function errorText(message) {
+function rankCell(rank, compact) {
+  const size = compact ? 9 : 12;
+  const label = rank === 1 ? '出线区' : rank === 3 ? '待定区' : '';
+  const labelColor = rank === 1 ? COLORS.qualify : COLORS.pending;
   return {
     type: 'stack',
     direction: 'column',
-    gap: 6,
-    padding: 10,
-    backgroundColor: COLORS.card,
-    borderRadius: 10,
+    width: compact ? 30 : 42,
+    gap: compact ? 1 : 2,
     children: [
-      text('积分数据加载失败', { size: 12, weight: 'bold' }, COLORS.error, { maxLines: 1 }),
-      text(String(message || '请稍后再试'), { size: 10, weight: 'medium' }, COLORS.muted, { maxLines: 3, minScale: 0.55 }),
+      label ? text(label, { size: compact ? 7 : 9, weight: 'bold' }, labelColor, { maxLines: 1, minScale: 0.5 }) : null,
+      text(String(rank), { size, weight: 'medium' }, COLORS.muted, { maxLines: 1 }),
+    ].filter(Boolean),
+  };
+}
+
+function errorPanel(message, compact) {
+  return {
+    type: 'stack',
+    direction: 'column',
+    gap: compact ? 8 : 10,
+    padding: compact ? [12, 10, 10, 10] : [18, 14, 14, 14],
+    backgroundColor: COLORS.panelGreen,
+    children: [
+      text('小组积分', { size: compact ? 16 : 23, weight: 'bold' }, '#FFFFFF', { maxLines: 1, minScale: 0.75 }),
+      {
+        type: 'stack',
+        direction: 'column',
+        gap: 6,
+        padding: compact ? 10 : 14,
+        backgroundColor: COLORS.table,
+        borderRadius: compact ? 10 : 14,
+        children: [
+          text('积分数据加载失败', { size: compact ? 11 : 13, weight: 'bold' }, COLORS.error, { maxLines: 1 }),
+          text(String(message || '请稍后再试'), { size: compact ? 9 : 11, weight: 'medium' }, COLORS.muted, { maxLines: 3, minScale: 0.55 }),
+        ],
+      },
     ],
   };
 }
 
-function emptyText() {
-  return text('暂无小组积分数据', { size: 11, weight: 'semibold' }, COLORS.muted, { maxLines: 2, minScale: 0.6 });
+function emptyPanel(compact) {
+  return {
+    type: 'stack',
+    direction: 'column',
+    gap: compact ? 8 : 10,
+    padding: compact ? [12, 10, 10, 10] : [18, 14, 14, 14],
+    backgroundColor: COLORS.panelGreen,
+    children: [
+      text('小组积分', { size: compact ? 16 : 23, weight: 'bold' }, '#FFFFFF', { maxLines: 1, minScale: 0.75 }),
+      {
+        type: 'stack',
+        padding: compact ? 10 : 14,
+        backgroundColor: COLORS.table,
+        borderRadius: compact ? 10 : 14,
+        children: [
+          text('暂无小组积分数据', { size: compact ? 11 : 13, weight: 'semibold' }, COLORS.muted, { maxLines: 2, minScale: 0.6 }),
+        ],
+      },
+    ],
+  };
 }
 
 function selectedGroupState(groups, env) {

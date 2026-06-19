@@ -30,7 +30,7 @@ https://raw.githubusercontent.com/vfelix7/rule_module_script/refs/heads/master/s
 - Script: `egern/scripts/WorldCup_Group_Standings_Widget.js`
 - Config snippet: `egern/yaml/WorldCup_Group_Standings_Widget.yaml`
 - Data source: ESPN FIFA World Cup (`fifa.world`)
-- Layout: top group selector, qualification/pending color marks, and table columns `赛` / `胜/平/负` / `进/失` / `积分`
+- Layout: green group card, qualification/pending section marks, and table columns `场次` / `胜/平/负` / `进/失` / `积分`
 
 Egern widget config:
 
@@ -45,7 +45,7 @@ env:
   GROUP: "A"
 ```
 
-The Egern widget documentation only exposes `url` for tap actions, so the active group is controlled by `GROUP` in the widget environment.
+The active group is controlled by `GROUP` in the widget environment.
 
 ### QWeather
 
