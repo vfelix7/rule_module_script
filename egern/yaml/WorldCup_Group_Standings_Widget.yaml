@@ -1,0 +1,15 @@
+scriptings:
+  - generic:
+      name: "world-cup-group-standings-widget"
+      script_url: "https://raw.githubusercontent.com/vfelix7/rule_module_script/refs/heads/master/egern/scripts/WorldCup_Group_Standings_Widget.js"
+      timeout: 20
+
+widgets:
+  - name: "世界杯小组积分"
+    script_name: "world-cup-group-standings-widget"
+    # 默认使用 ESPN FIFA World Cup 积分来源，无需 API Key。
+    # 小组件空间有限时，可用 GROUP_PAGE 和 MAX_GROUPS 切换显示的小组。
+    # 示例：
+    # env:
+    #   GROUP_PAGE: "1"
+    #   MAX_GROUPS: "4"

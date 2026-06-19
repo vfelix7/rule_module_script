@@ -25,6 +25,18 @@ Surge panel module:
 https://raw.githubusercontent.com/vfelix7/rule_module_script/refs/heads/master/surge/module/WorldCup_Surge.sgmodule
 ```
 
+### World Cup Group Standings
+
+- Script: `egern/scripts/WorldCup_Group_Standings_Widget.js`
+- Config snippet: `egern/yaml/WorldCup_Group_Standings_Widget.yaml`
+- Data source: ESPN FIFA World Cup (`fifa.world`)
+
+Egern widget config:
+
+```text
+https://raw.githubusercontent.com/vfelix7/rule_module_script/refs/heads/master/egern/yaml/WorldCup_Group_Standings_Widget.yaml
+```
+
 ### QWeather
 
 - Script: `egern/scripts/QWeather_Widget.js`
