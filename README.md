@@ -25,30 +25,6 @@ Surge panel module:
 https://raw.githubusercontent.com/vfelix7/rule_module_script/refs/heads/master/surge/module/WorldCup_Surge.sgmodule
 ```
 
-### World Cup Group Standings
-
-- Script: `egern/scripts/WorldCup_Group_Standings_Widget.js`
-- Config snippet: `egern/yaml/WorldCup_Group_Standings_Widget.yaml`
-- Data source: ESPN FIFA World Cup (`fifa.world`)
-- Layout: green group card, qualification/pending section marks, and table columns `场次` / `胜/平/负` / `进/失` / `积分`
-- Rotation: auto-rotates groups every 7 seconds by default
-
-Egern widget config:
-
-```text
-https://raw.githubusercontent.com/vfelix7/rule_module_script/refs/heads/master/egern/yaml/WorldCup_Group_Standings_Widget.yaml
-```
-
-Optional env:
-
-```yaml
-env:
-  ROTATE_SECONDS: "7"
-  # GROUP: "A"
-```
-
-Set `GROUP` only when you want to pin a specific group instead of rotating.
-
 ### QWeather
 
 - Script: `egern/scripts/QWeather_Widget.js`
