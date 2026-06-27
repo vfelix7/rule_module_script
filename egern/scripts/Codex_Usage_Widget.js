@@ -15,15 +15,14 @@ const DEFAULT_USAGE_URL = 'https://chatgpt.com/backend-api/wham/usage';
 const CACHE_KEY = 'codex-usage-widget-cache-v1';
 
 const COLORS = {
-  background: { light: '#F5F7FA', dark: '#111318' },
-  panel: { light: '#FFFFFF', dark: '#1C1F26' },
+  background: { light: '#FFFFFF', dark: '#111113' },
+  panel: { light: '#FFFFFF', dark: '#1C1C1E' },
   primary: { light: '#111318', dark: '#F7F8FA' },
   secondary: { light: '#68707C', dark: '#A8AFBA' },
-  track: { light: '#E4E8EE', dark: '#303540' },
-  fiveHour: { light: '#16A36A', dark: '#35C98A' },
-  weekly: { light: '#3478F6', dark: '#5A95FF' },
-  badge: { light: '#E8F0FF', dark: '#203252' },
-  badgeText: { light: '#2463C7', dark: '#82AEFF' },
+  border: { light: '#E4E5E7', dark: '#353539' },
+  divider: { light: '#E8E9EB', dark: '#303034' },
+  track: { light: '#E4E5E7', dark: '#3A3A3E' },
+  progress: { light: '#202124', dark: '#F2F2F7' },
   warning: { light: '#D65A00', dark: '#FF9F4A' },
   danger: { light: '#D70015', dark: '#FF453A' }
 };
@@ -217,13 +216,12 @@ function renderMedium(model) {
   return {
     type: 'widget',
     padding: 12,
-    gap: 7,
+    gap: 8,
     backgroundColor: COLORS.background,
     refreshAfter: model.refreshAfter,
     children: [
       createHeader(model, false),
-      createUsagePanel('5 小时', model.fiveHour, COLORS.fiveHour, model.timeZone),
-      createUsagePanel('一周', model.weekly, COLORS.weekly, model.timeZone)
+      createUsageList(model, false)
     ]
   };
 }
@@ -237,8 +235,7 @@ function renderSmall(model) {
     refreshAfter: model.refreshAfter,
     children: [
       createHeader(model, true),
-      createCompactUsage('5 小时', model.fiveHour, COLORS.fiveHour, model.timeZone),
-      createCompactUsage('一周', model.weekly, COLORS.weekly, model.timeZone)
+      createUsageList(model, true)
     ]
   };
 }
@@ -282,161 +279,166 @@ function renderAccessory(model, family) {
 }
 
 function createHeader(model, compact) {
-  const updated = model.cached ? '缓存数据' : `更新 ${formatClock(model.updatedAt, model.timeZone)}`;
-  const trailing = compact
-    ? []
-    : [
-        { type: 'spacer' },
-        {
-          type: 'text',
-          text: updated,
-          font: { size: 10 },
-          textColor: model.cached ? COLORS.warning : COLORS.secondary,
-          maxLines: 1
-        }
-      ];
-
   return {
     type: 'stack',
     direction: 'row',
     alignItems: 'center',
-    gap: compact ? 6 : 8,
+    gap: 7,
     children: [
       {
         type: 'image',
         src: 'sf-symbol:terminal.fill',
-        width: compact ? 17 : 19,
-        height: compact ? 17 : 19,
+        width: compact ? 15 : 17,
+        height: compact ? 15 : 17,
         color: COLORS.primary
       },
       {
         type: 'text',
         text: 'Codex 用量',
-        font: { size: compact ? 15 : 17, weight: 'bold' },
+        font: { size: compact ? 14 : 16, weight: 'semibold' },
         textColor: COLORS.primary,
         maxLines: 1,
         minScale: 0.75
       },
+      { type: 'spacer' },
       {
-        type: 'stack',
-        padding: compact ? [2, 5] : [3, 7],
-        backgroundColor: COLORS.badge,
-        borderRadius: 5,
-        children: [
-          {
-            type: 'text',
-            text: model.plan,
-            font: { size: compact ? 9 : 10, weight: 'semibold' },
-            textColor: COLORS.badgeText,
-            maxLines: 1
-          }
-        ]
-      },
-      ...trailing
+        type: 'text',
+        text: model.cached ? `${model.plan} · 缓存` : model.plan,
+        font: { size: compact ? 10 : 11, weight: 'medium' },
+        textColor: model.cached ? COLORS.warning : COLORS.secondary,
+        maxLines: 1
+      }
     ]
   };
 }
 
-function createUsagePanel(label, usage, accent, timeZone) {
-  const remaining = usage.remainingPercent;
-
+function createUsageList(model, compact) {
   return {
     type: 'stack',
     direction: 'column',
     flex: 1,
-    padding: [7, 10],
-    gap: 4,
     backgroundColor: COLORS.panel,
-    borderRadius: 7,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    children: [
+      createLimitRow('5 小时使用限额', model.fiveHour, model.timeZone, 'time', compact),
+      {
+        type: 'stack',
+        height: 1,
+        backgroundColor: COLORS.divider,
+        children: []
+      },
+      createLimitRow('每周使用限制', model.weekly, model.timeZone, 'date', compact)
+    ]
+  };
+}
+
+function createLimitRow(title, usage, timeZone, resetStyle, compact) {
+  const remaining = usage.remainingPercent;
+
+  if (compact) {
+    return {
+      type: 'stack',
+      direction: 'column',
+      flex: 1,
+      padding: [7, 9],
+      gap: 4,
+      children: [
+        {
+          type: 'stack',
+          direction: 'row',
+          alignItems: 'center',
+          children: [
+            {
+              type: 'text',
+              text: title,
+              font: { size: 11, weight: 'semibold' },
+              textColor: COLORS.primary,
+              maxLines: 1,
+              minScale: 0.8
+            },
+            { type: 'spacer' },
+            {
+              type: 'text',
+              text: `剩余 ${remaining}%`,
+              font: { size: 10, weight: 'medium' },
+              textColor: quotaColor(remaining),
+              maxLines: 1
+            }
+          ]
+        },
+        createProgressBar(remaining, 112, 5),
+        {
+          type: 'text',
+          text: `重置时间：${formatReset(usage.resetAt, timeZone, resetStyle)}`,
+          font: { size: 9 },
+          textColor: COLORS.secondary,
+          maxLines: 1,
+          minScale: 0.75
+        }
+      ]
+    };
+  }
+
+  return {
+    type: 'stack',
+    direction: 'row',
+    alignItems: 'center',
+    flex: 1,
+    padding: [8, 11],
     children: [
       {
         type: 'stack',
-        direction: 'row',
-        alignItems: 'center',
+        direction: 'column',
+        flex: 1,
+        gap: 3,
         children: [
           {
             type: 'text',
-            text: `${label}剩余`,
+            text: title,
             font: { size: 12, weight: 'semibold' },
-            textColor: COLORS.primary
+            textColor: COLORS.primary,
+            maxLines: 1
           },
-          { type: 'spacer' },
           {
             type: 'text',
-            text: `${remaining}%`,
-            font: { size: 16, weight: 'bold' },
-            textColor: quotaColor(remaining, accent)
-          }
-        ]
-      },
-      createProgressBar(remaining, accent, 232, 5),
-      {
-        type: 'stack',
-        direction: 'row',
-        children: [
-          {
-            type: 'text',
-            text: '重置时间',
-            font: { size: 9 },
-            textColor: COLORS.secondary
-          },
-          { type: 'spacer' },
-          {
-            type: 'text',
-            text: formatReset(usage.resetAt, timeZone),
-            font: { size: 9, weight: 'medium' },
+            text: `重置时间：${formatReset(usage.resetAt, timeZone, resetStyle)}`,
+            font: { size: 10 },
             textColor: COLORS.secondary,
             maxLines: 1
           }
         ]
-      }
-    ]
-  };
-}
-
-function createCompactUsage(label, usage, accent, timeZone) {
-  const remaining = usage.remainingPercent;
-
-  return {
-    type: 'stack',
-    direction: 'column',
-    flex: 1,
-    gap: 5,
-    children: [
+      },
       {
         type: 'stack',
         direction: 'row',
         alignItems: 'center',
+        gap: 9,
         children: [
+          createProgressBar(remaining, 92, 5),
           {
-            type: 'text',
-            text: label,
-            font: { size: 12, weight: 'semibold' },
-            textColor: COLORS.primary
-          },
-          { type: 'spacer' },
-          {
-            type: 'text',
-            text: `${remaining}%`,
-            font: { size: 16, weight: 'bold' },
-            textColor: quotaColor(remaining, accent)
+            type: 'stack',
+            direction: 'row',
+            width: 56,
+            children: [
+              { type: 'spacer' },
+              {
+                type: 'text',
+                text: `剩余 ${remaining}%`,
+                font: { size: 10, weight: 'medium' },
+                textColor: quotaColor(remaining),
+                maxLines: 1
+              }
+            ]
           }
         ]
-      },
-      createProgressBar(remaining, accent, 126, 6),
-      {
-        type: 'text',
-        text: `${formatReset(usage.resetAt, timeZone)} 重置`,
-        font: { size: 9 },
-        textColor: COLORS.secondary,
-        maxLines: 1,
-        minScale: 0.75
       }
     ]
   };
 }
 
-function createProgressBar(percent, accent, width, height) {
+function createProgressBar(percent, width, height) {
   const fillWidth = Math.max(3, Math.round(width * percent / 100));
 
   return {
@@ -450,7 +452,7 @@ function createProgressBar(percent, accent, width, height) {
         type: 'stack',
         width: fillWidth,
         height,
-        backgroundColor: quotaColor(percent, accent),
+        backgroundColor: quotaColor(percent),
         borderRadius: 4,
         children: []
       }
@@ -502,44 +504,36 @@ function renderError(family, title, detail) {
   };
 }
 
-function quotaColor(percent, normalColor) {
+function quotaColor(percent) {
   if (percent <= 10) return COLORS.danger;
   if (percent <= 25) return COLORS.warning;
-  return normalColor;
+  return COLORS.progress;
 }
 
-function formatReset(value, timeZone) {
+function formatReset(value, timeZone, style) {
   if (!value) return '未知';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '未知';
 
   try {
-    return new Intl.DateTimeFormat('zh-CN', {
-      timeZone,
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
-    }).format(date).replace(/\//g, '/');
+    const options = style === 'time'
+      ? {
+          timeZone,
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        }
+      : {
+          timeZone,
+          month: 'long',
+          day: 'numeric'
+        };
+    return new Intl.DateTimeFormat('zh-CN', options).format(date);
   } catch {
-    return `${pad2(date.getMonth() + 1)}/${pad2(date.getDate())} ${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
-  }
-}
-
-function formatClock(value, timeZone) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '--:--';
-
-  try {
-    return new Intl.DateTimeFormat('zh-CN', {
-      timeZone,
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
-    }).format(date);
-  } catch {
-    return `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+    if (style === 'time') {
+      return `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+    }
+    return `${date.getMonth() + 1}月${date.getDate()}日`;
   }
 }
 
