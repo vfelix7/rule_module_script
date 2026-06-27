@@ -1,0 +1,23 @@
+name: "Codex 剩余用量"
+description: "显示 Codex 5 小时与一周剩余用量、重置时间和会员版本"
+author: "vfelix7"
+
+scriptings:
+  - generic:
+      name: "codex-usage-widget"
+      script_url: "https://raw.githubusercontent.com/vfelix7/rule_module_script/refs/heads/master/egern/scripts/Codex_Usage_Widget.js"
+      timeout: 15
+
+widgets:
+  - name: "Codex 剩余用量"
+    script_name: "codex-usage-widget"
+
+# 安装模块后，在模块 Env 中配置：
+# CODEX_ACCESS_TOKEN: "你的 ChatGPT/Codex OAuth access token"
+#
+# 如果账号接口要求指定账户，再增加：
+# CODEX_ACCOUNT_ID: "你的 ChatGPT account id"
+#
+# 可选：
+# TIME_ZONE: "Asia/Shanghai"
+# REFRESH_MINUTES: "15"

@@ -28,3 +28,32 @@ https://raw.githubusercontent.com/vfelix7/rule_module_script/refs/heads/master/s
 ### QWeather
 
 - Script: `egern/scripts/QWeather_Widget.js`
+
+### Codex Usage
+
+- Script: `egern/scripts/Codex_Usage_Widget.js`
+- Module: `egern/yaml/Codex_Usage_Widget.yaml`
+
+Module URL:
+
+```text
+https://raw.githubusercontent.com/vfelix7/rule_module_script/refs/heads/master/egern/yaml/Codex_Usage_Widget.yaml
+```
+
+Required module env:
+
+```yaml
+CODEX_ACCESS_TOKEN: "ChatGPT/Codex OAuth access token"
+```
+
+Optional env:
+
+```yaml
+CODEX_ACCOUNT_ID: "ChatGPT account id"
+TIME_ZONE: "Asia/Shanghai"
+REFRESH_MINUTES: "15"
+```
+
+The widget shows the remaining 5-hour and weekly Codex usage percentages,
+their reset times, and the account plan. Credentials are read only from the
+Egern module environment and are not stored in the repository.
