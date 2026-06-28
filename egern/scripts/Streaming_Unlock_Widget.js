@@ -119,14 +119,12 @@ function firstRegion(text, patterns) {
 
 function regionFromHeaders(headers) {
   const names = [
+    'physical-location',
     'cf-ipcountry',
     'x-country-code',
     'x-client-country',
-    'x-client-region',
     'x-geo-country',
     'x-originating-country',
-    'region',
-    'physical-location',
   ];
 
   for (const name of names) {
@@ -140,6 +138,44 @@ function regionFromHeaders(headers) {
     if (embedded) return embedded;
   }
 
+  return '';
+}
+
+function regionFromLocation(headers) {
+  const location = getHeader(headers, 'location');
+  if (!location) return '';
+
+  const queryRegion = firstRegion(location, [
+    /[?&](?:country|countryCode|country_code|region|gl)=([A-Z]{2})(?:[&#]|$)/i,
+  ]);
+  if (queryRegion) return queryRegion;
+
+  const locale = location.match(/\/([a-z]{2})-([a-z]{2})(?:[/?#]|$)/i);
+  if (!locale) return '';
+
+  const left = locale[1].toUpperCase();
+  const right = locale[2].toUpperCase();
+  const languageCodes = new Set([
+    'AR',
+    'DE',
+    'EN',
+    'ES',
+    'FR',
+    'IT',
+    'JA',
+    'KO',
+    'NL',
+    'PL',
+    'PT',
+    'RU',
+    'TH',
+    'TR',
+    'VI',
+    'ZH',
+  ]);
+
+  if (languageCodes.has(left) && !languageCodes.has(right)) return normalizeRegion(right);
+  if (!languageCodes.has(left) && languageCodes.has(right)) return normalizeRegion(left);
   return '';
 }
 
@@ -176,6 +212,7 @@ function hasAny(text, patterns) {
 function classifyPage(response, blockedPatterns) {
   if (!response.ok) return 'error';
   if (response.status === 451) return 'blocked';
+  if (hasAny(response.body, blockedPatterns)) return 'blocked';
 
   if (
     response.status === 403 &&
@@ -184,7 +221,6 @@ function classifyPage(response, blockedPatterns) {
     return 'unknown';
   }
 
-  if (hasAny(response.body, blockedPatterns)) return 'blocked';
   if (isHttpSuccess(response.status)) return 'ok';
   if (response.status === 401) return 'ok';
   if (response.status === 403) return 'unknown';
@@ -213,38 +249,53 @@ async function checkYouTube(ctx) {
 }
 
 async function checkNetflix(ctx) {
-  const response = await request(ctx, 'https://www.netflix.com/title/70143836', {
-    redirect: 'follow',
-  });
+  const [page, entry] = await Promise.all([
+    request(ctx, 'https://www.netflix.com/title/70143836', {
+      redirect: 'follow',
+    }),
+    request(ctx, 'https://www.netflix.com/title/70143836', {
+      redirect: 'manual',
+      readBody: false,
+    }),
+  ]);
 
   const region =
-    regionFromHeaders(response.headers) ||
-    firstRegion(response.body, [/"countryCode"\s*:\s*"([A-Z]{2})"/i]);
+    regionFromLocation(entry.headers) ||
+    regionFromHeaders(page.headers) ||
+    firstRegion(page.body, [/"countryCode"\s*:\s*"([A-Z]{2})"/i]);
 
-  const state = classifyPage(response, [
+  const state = classifyPage(page, [
     /You seem to be using an unblocker or proxy/i,
     /proxy or unblocker/i,
     /This title is not available in your current region/i,
   ]);
 
-  return result(state, region, response.ms);
+  return result(state, region, Math.max(page.ms, entry.ms));
 }
 
 async function checkDisney(ctx) {
-  const response = await request(ctx, 'https://www.disneyplus.com/', {
-    redirect: 'follow',
-  });
+  const [page, entry] = await Promise.all([
+    request(ctx, 'https://www.disneyplus.com/', {
+      redirect: 'follow',
+    }),
+    request(ctx, 'https://www.disneyplus.com/', {
+      redirect: 'manual',
+      readBody: false,
+    }),
+  ]);
 
   const region =
-    regionFromHeaders(response.headers) || regionFromServiceBody(response.body);
+    regionFromHeaders(entry.headers) ||
+    regionFromLocation(entry.headers) ||
+    regionFromHeaders(page.headers);
 
-  const state = classifyPage(response, [
+  const state = classifyPage(page, [
     /Disney\+ is not available in your region/i,
     /Disney\+ is unavailable in your region/i,
     /not available in your country/i,
   ]);
 
-  return result(state, region, response.ms);
+  return result(state, region, Math.max(page.ms, entry.ms));
 }
 
 async function checkChatGPT(ctx) {
@@ -284,35 +335,45 @@ async function checkClaude(ctx) {
     regionFromHeaders(page.headers) ||
     regionFromServiceBody(page.body);
 
-  const state = classifyPage(page, [
+  let state = classifyPage(page, [
     /Claude is not available in your country/i,
     /unsupported country/i,
     /not available in your region/i,
   ]);
 
+  if (state === 'unknown' && regionFromTrace(trace.body)) {
+    state = 'ok';
+  }
+
   return result(state, region, Math.max(page.ms, trace.ms));
 }
 
 async function checkGemini(ctx) {
-  const response = await request(ctx, 'https://gemini.google.com/app', {
-    redirect: 'follow',
-  });
+  const [page, entry] = await Promise.all([
+    request(ctx, 'https://gemini.google.com/app', {
+      redirect: 'follow',
+    }),
+    request(ctx, 'https://gemini.google.com/app', {
+      redirect: 'manual',
+      readBody: false,
+    }),
+  ]);
 
   const region =
-    regionFromHeaders(response.headers) ||
-    firstRegion(response.body, [
+    regionFromLocation(entry.headers) ||
+    regionFromHeaders(page.headers) ||
+    firstRegion(page.body, [
       /"countryCode"\s*:\s*"([A-Z]{2})"/i,
       /"country"\s*:\s*"([A-Z]{2})"/i,
-      /"region"\s*:\s*"([A-Z]{2})"/i,
     ]);
 
-  const state = classifyPage(response, [
+  const state = classifyPage(page, [
     /Gemini isn't currently supported in your country/i,
     /Gemini is not available in your country/i,
     /not available in your region/i,
   ]);
 
-  return result(state, region, response.ms);
+  return result(state, region, Math.max(page.ms, entry.ms));
 }
 
 function stateLabel(info) {
