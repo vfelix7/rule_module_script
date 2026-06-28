@@ -87,6 +87,16 @@ function check(id, label, value, state, detail) {
   return { id, label, value, state, detail };
 }
 
+function orderedCheckList(checks) {
+  return [
+    checks.tunnel,
+    checks.dns,
+    checks.ipv6,
+    checks.tls,
+    checks.portal
+  ];
+}
+
 function stateColor(state) {
   if (state === 'pass') return C.ok;
   if (state === 'warn') return C.warn;
@@ -243,17 +253,18 @@ async function loadSecurity(ctx) {
   ]);
 
   const tunnel = tunnelCheck(egress, direct, policy);
-  const checks = [
+  const checks = {
     tunnel,
-    tlsCheck(egress),
-    portalCheck(captive),
-    ipv6Check(egressV6, directV6, tunnel),
-    dnsLeakCheck(ctx, dnsProbe, egress, direct)
-  ];
-  const passed = checks.filter(item => item.state === 'pass').length;
-  const warnings = checks.filter(item => item.state === 'warn').length;
-  const failures = checks.filter(item => item.state === 'fail').length;
-  const unknown = checks.filter(item => item.state === 'unknown').length;
+    dns: dnsLeakCheck(ctx, dnsProbe, egress, direct),
+    ipv6: ipv6Check(egressV6, directV6, tunnel),
+    tls: tlsCheck(egress),
+    portal: portalCheck(captive)
+  };
+  const checkList = orderedCheckList(checks);
+  const passed = checkList.filter(item => item.state === 'pass').length;
+  const warnings = checkList.filter(item => item.state === 'warn').length;
+  const failures = checkList.filter(item => item.state === 'fail').length;
+  const unknown = checkList.filter(item => item.state === 'unknown').length;
   const dnsServers = Array.isArray(ctx.device?.dnsServers) ? ctx.device.dnsServers : [];
 
   let summary = { label: 'SECURE', color: C.ok };
@@ -264,7 +275,7 @@ async function loadSecurity(ctx) {
   return {
     checks,
     passed,
-    total: checks.length,
+    total: checkList.length,
     warnings,
     failures,
     unknown,
@@ -345,8 +356,7 @@ function mediumWidget(data, ctx) {
   const showIp = boolEnv(ctx, 'SHOW_IP', false);
   const refreshMinutes = numberEnv(ctx, 'REFRESH_MINUTES', 10, 5, 60);
   const ip = showIp ? data.publicIp || '--' : maskIp(data.publicIp);
-  const tls = data.checks[1];
-  const portal = data.checks[2];
+  const { tunnel, dns, ipv6, tls, portal } = data.checks;
   const secondaryColor = [tls, portal].some(item => item.state === 'fail')
     ? C.fail
     : [tls, portal].some(item => item.state === 'warn')
@@ -395,9 +405,9 @@ function mediumWidget(data, ctx) {
         direction: 'row',
         gap: 12,
         children: [
-          checkCell(data.checks[0]),
-          checkCell(data.checks[4]),
-          checkCell(data.checks[3])
+          checkCell(tunnel),
+          checkCell(dns),
+          checkCell(ipv6)
         ]
       },
       {
@@ -416,6 +426,7 @@ function mediumWidget(data, ctx) {
 
 function smallWidget(data, ctx) {
   const refreshMinutes = numberEnv(ctx, 'REFRESH_MINUTES', 10, 5, 60);
+  const { tunnel, dns } = data.checks;
   return {
     type: 'widget',
     backgroundColor: C.bg,
@@ -430,8 +441,8 @@ function smallWidget(data, ctx) {
       }),
       text('项检查通过', 10, C.dim, 'medium'),
       { type: 'spacer' },
-      checkCell(data.checks[0]),
-      checkCell(data.checks[4])
+      checkCell(tunnel),
+      checkCell(dns)
     ]
   };
 }
@@ -469,13 +480,7 @@ function detailRow(item) {
 function largeWidget(data, ctx) {
   const showIp = boolEnv(ctx, 'SHOW_IP', false);
   const refreshMinutes = numberEnv(ctx, 'REFRESH_MINUTES', 10, 5, 60);
-  const priorityChecks = [
-    data.checks[0],
-    data.checks[4],
-    data.checks[3],
-    data.checks[1],
-    data.checks[2]
-  ];
+  const priorityChecks = orderedCheckList(data.checks);
   return {
     type: 'widget',
     backgroundColor: C.bg,
