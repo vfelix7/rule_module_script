@@ -35,6 +35,8 @@ const COMMON_HEADERS = {
 
 const TRACE_HEADERS = {
   Accept: 'text/plain,*/*;q=0.8',
+  'Cache-Control': 'no-cache',
+  Pragma: 'no-cache',
   'User-Agent': USER_AGENT,
 };
 
@@ -42,6 +44,11 @@ const REQUEST_TIMEOUT = 7000;
 
 function elapsedSince(startedAt) {
   return Math.max(0, Date.now() - startedAt);
+}
+
+function uncachedUrl(url) {
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}_=${Date.now()}`;
 }
 
 async function request(ctx, url, options = {}) {
@@ -301,7 +308,7 @@ async function checkDisney(ctx) {
 async function checkChatGPT(ctx) {
   const [page, trace] = await Promise.all([
     request(ctx, 'https://chatgpt.com/', { redirect: 'follow' }),
-    request(ctx, 'https://chatgpt.com/cdn-cgi/trace', {
+    request(ctx, uncachedUrl('https://chatgpt.com/cdn-cgi/trace'), {
       headers: TRACE_HEADERS,
       redirect: 'follow',
     }),
@@ -324,7 +331,7 @@ async function checkChatGPT(ctx) {
 async function checkClaude(ctx) {
   const [page, trace] = await Promise.all([
     request(ctx, 'https://claude.ai/login', { redirect: 'follow' }),
-    request(ctx, 'https://claude.ai/cdn-cgi/trace', {
+    request(ctx, uncachedUrl('https://claude.ai/cdn-cgi/trace'), {
       headers: TRACE_HEADERS,
       redirect: 'follow',
     }),
