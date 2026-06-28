@@ -426,7 +426,7 @@ function compactInfo(label, value, color) {
     direction: 'row',
     alignItems: 'center',
     gap: 6,
-    width: 158,
+    width: 146,
     children: [
       {
         type: 'text',
