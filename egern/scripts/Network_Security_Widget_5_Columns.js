@@ -1,5 +1,5 @@
 /**
- * Egern widget: Network Security Check (5-column layout)
+ * Egern widget: Network Security Check (3+2 two-row layout)
  *
  * Create a Generic script with this file, then add it in Widget Gallery.
  * Optional env values:
@@ -350,13 +350,13 @@ function compactCheckCell(item) {
     gap: 3,
     flex: 1,
     children: [
-      text(item.label, 8, C.dim, 'semibold', {
+      text(item.label, 9, C.dim, 'semibold', {
+        textAlign: 'center',
+        minScale: 0.72
+      }),
+      text(item.value, 11, valueColor, 'semibold', {
         textAlign: 'center',
         minScale: 0.68
-      }),
-      text(item.value, 10, valueColor, 'semibold', {
-        textAlign: 'center',
-        minScale: 0.62
       })
     ]
   };
@@ -366,18 +366,20 @@ function mediumWidget(data, ctx) {
   const showIp = boolEnv(ctx, 'SHOW_IP', false);
   const refreshMinutes = numberEnv(ctx, 'REFRESH_MINUTES', 10, 5, 60);
   const ip = showIp ? data.publicIp || '--' : maskIp(data.publicIp);
-  const mediumChecks = [
+  const primaryChecks = [
     data.checks[0],
     data.checks[1],
-    data.checks[3],
+    data.checks[3]
+  ];
+  const secondaryChecks = [
     data.checks[2],
     data.checks[4]
   ];
   return {
     type: 'widget',
     backgroundColor: C.bg,
-    padding: [13, 16, 13, 16],
-    gap: 6,
+    padding: [11, 16, 11, 16],
+    gap: 4,
     refreshAfter: new Date(Date.now() + refreshMinutes * 60 * 1000).toISOString(),
     children: [
       header(data),
@@ -415,8 +417,15 @@ function mediumWidget(data, ctx) {
         type: 'stack',
         direction: 'row',
         alignItems: 'center',
-        gap: 4,
-        children: mediumChecks.map(compactCheckCell)
+        gap: 12,
+        children: primaryChecks.map(compactCheckCell)
+      },
+      {
+        type: 'stack',
+        direction: 'row',
+        alignItems: 'center',
+        gap: 12,
+        children: secondaryChecks.map(compactCheckCell)
       }
     ]
   };
