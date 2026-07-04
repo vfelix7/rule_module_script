@@ -67,8 +67,7 @@ $httpClient.get(request, function (error, response, body) {
     "位置  " + (location || "-"),
     "ASN   " + asn,
     "类型  " + networkType,
-    "风险等级  " + level.icon + " " + score,
-    "节点  " + policy
+    "风险等级  " + level.icon + " " + score
   ];
 
   $done({
@@ -80,7 +79,6 @@ $httpClient.get(request, function (error, response, body) {
 
 function finishError(message, detail) {
   var lines = [message, detail || "未知错误"];
-  lines.push("节点  " + policy);
 
   $done({
     title: panelTitle,
