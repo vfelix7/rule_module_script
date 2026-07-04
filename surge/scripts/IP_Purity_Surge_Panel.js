@@ -2,15 +2,11 @@
  * IPPure - Surge IP 纯净度面板
  * 数据源：https://my.ippure.com/v1/info
  *
- * 参数：
- * Policy  - 指定检测策略/策略组；留空时按当前规则请求
- * Mark_IP - true/false，是否打码 IP，默认 true
+ * $argument：指定检测策略/策略组；留空时按当前规则请求
  */
 
 var API_URL = "https://my.ippure.com/v1/info";
-var args = parseArguments(typeof $argument === "string" ? $argument : "");
-var policy = readArgument(args, ["Policy", "policy"], "");
-var markIP = readBoolean(readArgument(args, ["Mark_IP", "MARK_IP", "markIP"], "true"), true);
+var policy = typeof $argument === "string" ? $argument.trim() : "";
 var panelTitle = "IP 纯净度";
 
 var request = {
@@ -61,7 +57,7 @@ $httpClient.get(request, function (error, response, body) {
   var residential = Boolean(data.isResidential);
   var networkType = residential ? "🏠 住宅 / 家宽" : "🏢 机房 / 商业";
   var ipVersion = ip.indexOf(":") >= 0 ? "IPv6" : "IPv4";
-  var displayIP = markIP ? maskIP(ip) : ip;
+  var displayIP = maskIP(ip);
   var score = Number.isFinite(risk) ? String(Math.round(risk)) : "--";
 
   var lines = [
@@ -90,47 +86,6 @@ function finishError(message, detail) {
     content: lines.join("\n"),
     style: "error"
   });
-}
-
-function parseArguments(input) {
-  var result = {};
-  if (!input) return result;
-
-  input.split("&").forEach(function (item) {
-    if (!item) return;
-    var index = item.indexOf("=");
-    var rawKey = index >= 0 ? item.slice(0, index) : item;
-    var rawValue = index >= 0 ? item.slice(index + 1) : "";
-    var key = safeDecode(rawKey);
-    if (key) result[key] = safeDecode(rawValue);
-  });
-
-  return result;
-}
-
-function safeDecode(value) {
-  try {
-    return decodeURIComponent(String(value || "").replace(/\+/g, " "));
-  } catch (e) {
-    return String(value || "");
-  }
-}
-
-function readArgument(source, keys, fallback) {
-  for (var i = 0; i < keys.length; i += 1) {
-    if (source[keys[i]] !== undefined && source[keys[i]] !== "") {
-      return String(source[keys[i]]).trim();
-    }
-  }
-  return fallback;
-}
-
-function readBoolean(value, fallback) {
-  if (value === undefined || value === null || value === "") return fallback;
-  var normalized = String(value).toLowerCase();
-  if (normalized === "true" || normalized === "1" || normalized === "yes") return true;
-  if (normalized === "false" || normalized === "0" || normalized === "no") return false;
-  return fallback;
 }
 
 function extractRisk(source) {
