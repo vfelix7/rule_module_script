@@ -2,12 +2,13 @@
  * IPPure - Surge IP 纯净度面板
  * 数据源：https://my.ippure.com/v1/info
  *
- * $argument：true/false，是否打码 IP
+ * $argument：指定检测策略组或节点
  */
 
 var API_URL = "https://my.ippure.com/v1/info";
-var markIPArgument = typeof $argument === "undefined" ? "true" : ($argument || "true");
-var markIP = String(markIPArgument).toLowerCase() === "true";
+var policy = typeof $argument === "string" && $argument.trim()
+  ? $argument.trim()
+  : "DIRECT";
 var panelTitle = "IP 纯净度";
 
 var request = {
@@ -19,6 +20,8 @@ var request = {
   timeout: 8,
   "auto-cookie": false
 };
+
+request.policy = policy;
 
 $httpClient.get(request, function (error, response, body) {
   if (error) {
@@ -56,7 +59,7 @@ $httpClient.get(request, function (error, response, body) {
   var residential = Boolean(data.isResidential);
   var networkType = residential ? "🏠 住宅 / 家宽" : "🏢 机房 / 商业";
   var ipVersion = ip.indexOf(":") >= 0 ? "IPv6" : "IPv4";
-  var displayIP = markIP ? maskIP(ip) : ip;
+  var displayIP = maskIP(ip);
   var score = Number.isFinite(risk) ? String(Math.round(risk)) : "--";
 
   var lines = [
@@ -64,7 +67,8 @@ $httpClient.get(request, function (error, response, body) {
     "位置  " + (location || "-"),
     "ASN   " + asn,
     "类型  " + networkType,
-    "风险等级  " + level.icon + " " + score
+    "风险等级  " + level.icon + " " + score,
+    "节点  " + policy
   ];
 
   $done({
@@ -76,6 +80,7 @@ $httpClient.get(request, function (error, response, body) {
 
 function finishError(message, detail) {
   var lines = [message, detail || "未知错误"];
+  lines.push("节点  " + policy);
 
   $done({
     title: panelTitle,
