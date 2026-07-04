@@ -5,14 +5,13 @@
  * 参数：
  * Policy  - 指定检测策略/策略组；留空时按当前规则请求
  * Mark_IP - true/false，是否打码 IP，默认 true
- * Title   - 面板标题，默认 IP PURITY
  */
 
 var API_URL = "https://my.ippure.com/v1/info";
 var args = parseArguments(typeof $argument === "string" ? $argument : "");
 var policy = readArgument(args, ["Policy", "policy"], "");
 var markIP = readBoolean(readArgument(args, ["Mark_IP", "MARK_IP", "markIP"], "true"), true);
-var panelTitle = readArgument(args, ["Title", "LABEL", "label"], "IP PURITY");
+var panelTitle = "IP 纯净度";
 
 var request = {
   url: API_URL,
@@ -59,27 +58,24 @@ $httpClient.get(request, function (error, response, body) {
   var asn = data.asn !== undefined && data.asn !== null && data.asn !== ""
     ? "AS" + data.asn
     : "-";
-  var organization = text(data.asOrganization) || "-";
   var residential = Boolean(data.isResidential);
-  var networkType = residential ? "住宅 / 家宽" : "机房 / 商业";
+  var networkType = residential ? "🏠 住宅 / 家宽" : "🏢 机房 / 商业";
   var ipVersion = ip.indexOf(":") >= 0 ? "IPv6" : "IPv4";
   var displayIP = markIP ? maskIP(ip) : ip;
-  var score = Number.isFinite(risk) ? Math.round(risk) + " / 100" : "暂无评分";
+  var score = Number.isFinite(risk) ? String(Math.round(risk)) : "--";
 
   var lines = [
     ipVersion + "  " + displayIP,
     "位置  " + (location || "-"),
     "ASN   " + asn,
-    "组织  " + truncate(organization, 42),
     "类型  " + networkType,
-    "评分  " + score + " · " + level.label
+    "风险等级  " + level.icon + " " + score
   ];
 
-  if (policy) lines.push("策略  " + policy);
-  lines.push("更新  " + formatTime(new Date()));
+  if (policy) lines.push("节点  " + policy);
 
   $done({
-    title: panelTitle + " · " + level.title,
+    title: panelTitle,
     content: lines.join("\n"),
     style: level.style
   });
@@ -87,11 +83,10 @@ $httpClient.get(request, function (error, response, body) {
 
 function finishError(message, detail) {
   var lines = [message, detail || "未知错误"];
-  if (policy) lines.push("策略  " + policy);
-  lines.push("更新  " + formatTime(new Date()));
+  if (policy) lines.push("节点  " + policy);
 
   $done({
-    title: panelTitle + " · 检测失败",
+    title: panelTitle,
     content: lines.join("\n"),
     style: "error"
   });
@@ -162,18 +157,18 @@ function extractRisk(source) {
 
 function riskLevel(risk) {
   if (!Number.isFinite(risk)) {
-    return { label: "风险未知", title: "未知", style: "info" };
+    return { icon: "⚪️", style: "info" };
   }
   if (risk >= 80) {
-    return { label: "极高风险", title: Math.round(risk) + " · 极高风险", style: "error" };
+    return { icon: "🔴", style: "error" };
   }
   if (risk >= 70) {
-    return { label: "高风险", title: Math.round(risk) + " · 高风险", style: "error" };
+    return { icon: "🟠", style: "error" };
   }
   if (risk >= 40) {
-    return { label: "中等风险", title: Math.round(risk) + " · 中等风险", style: "alert" };
+    return { icon: "🟡", style: "alert" };
   }
-  return { label: "低风险", title: Math.round(risk) + " · 低风险", style: "good" };
+  return { icon: "🟢", style: "good" };
 }
 
 function compactLocation(source, countryCode) {
@@ -213,18 +208,6 @@ function flagEmoji(code) {
   );
 }
 
-function truncate(value, maxLength) {
-  var output = text(value) || "-";
-  return output.length > maxLength ? output.slice(0, maxLength - 1) + "…" : output;
-}
-
 function text(value) {
   return value === undefined || value === null ? "" : String(value).trim();
-}
-
-function formatTime(date) {
-  var hours = String(date.getHours()).padStart(2, "0");
-  var minutes = String(date.getMinutes()).padStart(2, "0");
-  var seconds = String(date.getSeconds()).padStart(2, "0");
-  return hours + ":" + minutes + ":" + seconds;
 }
