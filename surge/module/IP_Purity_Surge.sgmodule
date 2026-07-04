@@ -1,0 +1,11 @@
+#!name=IP 纯净度面板
+#!desc=检测当前出口 IP、地区、ASN、网络类型与风险评分。Policy 留空时按当前规则请求。
+#!arguments=Policy=&Mark_IP=true&Title=IP%20PURITY
+#!category=Panel
+#!system=ios
+
+[Panel]
+IP Purity = title="IP PURITY", content="点击刷新以检测当前出口 IP", style=info, script-name=IP Purity Check, update-interval=600
+
+[Script]
+IP Purity Check = type=generic, timeout=12, script-path=https://raw.githubusercontent.com/vfelix7/rule_module_script/refs/heads/master/surge/scripts/IP_Purity_Surge_Panel.js, script-update-interval=86400, argument=Policy=%Policy%&Mark_IP=%Mark_IP%&Title=%Title%
