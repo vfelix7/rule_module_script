@@ -2,13 +2,13 @@
  * IPPure - Surge IP 纯净度面板
  * 数据源：https://my.ippure.com/v1/info
  *
- * $argument：指定检测策略组或节点
+ * $argument：Proxy=<策略组或节点>&MarkIP=<true/false>
  */
 
 var API_URL = "https://my.ippure.com/v1/info";
-var policy = typeof $argument === "string" && $argument.trim()
-  ? $argument.trim()
-  : "DIRECT";
+var args = parseScriptArgument(typeof $argument === "string" ? $argument : "");
+var policy = args.policy;
+var markIP = args.markIP;
 var panelTitle = "IP 纯净度";
 
 var request = {
@@ -59,7 +59,7 @@ $httpClient.get(request, function (error, response, body) {
   var residential = Boolean(data.isResidential);
   var networkType = residential ? "🏠 住宅 / 家宽" : "🏢 机房 / 商业";
   var ipVersion = ip.indexOf(":") >= 0 ? "IPv6" : "IPv4";
-  var displayIP = maskIP(ip);
+  var displayIP = markIP ? maskIP(ip) : ip;
   var score = Number.isFinite(risk) ? String(Math.round(risk)) : "--";
 
   var lines = [
@@ -87,6 +87,22 @@ function finishError(message, detail) {
     content: lines.join("\n"),
     style: "error"
   });
+}
+
+function parseScriptArgument(input) {
+  var marker = "&MarkIP=";
+  var markerIndex = input.lastIndexOf(marker);
+  var policyPart = markerIndex >= 0 ? input.slice(0, markerIndex) : input;
+  var markIPPart = markerIndex >= 0 ? input.slice(markerIndex + marker.length) : "true";
+
+  if (policyPart.indexOf("Proxy=") === 0) {
+    policyPart = policyPart.slice(6);
+  }
+
+  return {
+    policy: policyPart.trim() || "DIRECT",
+    markIP: String(markIPPart || "true").toLowerCase() === "true"
+  };
 }
 
 function extractRisk(source) {
