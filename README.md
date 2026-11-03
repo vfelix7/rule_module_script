@@ -51,6 +51,31 @@ REFRESH_MINUTES: "10"     # 5-60
 The widget checks egress isolation (proxy vs direct), DNS leaks, IPv6
 routing, the TLS version, and captive portals.
 
+### IP Purity (IPPure)
+
+- Script: `egern/scripts/IP_Purity_Widget.js`
+- Module: `egern/module/IP_Purity_Widget.yaml`
+- Surge module: `surge/module/IP_Purity_Surge.sgmodule`
+- Data source: `https://my.ippure.com/v1/info`
+
+Module URL:
+
+```text
+https://raw.githubusercontent.com/vfelix7/rule_module_script/refs/heads/master/egern/module/IP_Purity_Widget.yaml
+```
+
+Optional env:
+
+```yaml
+POLICY: "Proxy"         # policy group or node to check; empty follows routing rules
+MARK_IP: "true"         # false shows the full IP
+REFRESH_MINUTES: "10"
+LABEL: "IP PURITY"
+```
+
+The widget shows the egress IP's risk score, residential or data-center type,
+location, and ASN. Set `POLICY` to a landing node to check that node's IP.
+
 ### Media & AI Unlock
 
 - Script: `egern/scripts/Media_AI_Unlock_Widget.js`

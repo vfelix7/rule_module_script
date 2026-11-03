@@ -4,7 +4,10 @@
  *
  * 数据源：https://my.ippure.com/v1/info
  *
+ * 模块：egern/module/IP_Purity_Widget.yaml
+ *
  * env 参数：
+ *   POLICY=Proxy             检测哪个策略组或节点的出口 IP；留空按 Egern 分流规则
  *   MARK_IP=true/false       是否打码 IP，默认 true
  *   REFRESH_MINUTES=10       刷新间隔，默认 10 分钟
  *   LABEL=IP PURITY          自定义标题
@@ -42,13 +45,17 @@ export default async function(ctx) {
   const markIP = String(env.MARK_IP || 'true').toLowerCase() === 'true'
   const refreshMinutes = readNumber(env.REFRESH_MINUTES, 10)
   const title = env.LABEL || 'IP PURITY'
+  const policy = String(env.POLICY || '').trim()
 
   let data
   try {
-    const resp = await ctx.http.get(API_URL, { timeout: 8000 })
+    const options = { timeout: 8000 }
+    if (policy) options.policy = policy
+    const resp = await ctx.http.get(API_URL, options)
     data = await resp.json()
   } catch (e) {
-    return errorWidget(title, '请求失败', String(e), refreshMinutes)
+    const detail = policy ? `策略「${policy}」：${String(e)}` : String(e)
+    return errorWidget(title, '请求失败', detail, refreshMinutes)
   }
 
   const ip = data?.ip || ''
