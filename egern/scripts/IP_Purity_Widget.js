@@ -27,15 +27,18 @@ const API_URL = 'https://my.ippure.com/v1/info';
 const SITE_URL = 'https://ippure.com/';
 const TIMEOUT = 8000;
 
-// 矿泉水般的冷白 / 深水色底，墨绿的字；颜色只用来表达含义
+// 底色和文字灰度跟 CF 探针「流量延迟版」一致：浅色是白到浅灰蓝的渐变，深色是 GitHub 那种深灰；
+// 彩色只用来表达含义
 const C = {
-  bg: { light: '#EEF2F0', dark: '#0E1719' },
-  ink: { light: '#12201F', dark: '#E8F0EE' },
-  soft: { light: '#566765', dark: '#93A6A3' },
-  faint: { light: '#8A9A98', dark: '#5C6E6B' },
+  bgTop: { light: '#FFFFFF', dark: '#161B22' },
+  bgBottom: { light: '#EEF1F5', dark: '#0D1117' },
+  ink: { light: '#1F2328', dark: '#E6EDF3' },
+  soft: { light: '#59636E', dark: '#8B949E' },
+  faint: { light: '#818B98', dark: '#6E7681' },
   good: { light: '#0F8F82', dark: '#3CCFBD' },
   warn: { light: '#B4600F', dark: '#F0A040' },
 };
+const BACKGROUND = { type: 'linear', colors: [C.bgTop, C.bgBottom], startPoint: { x: 0, y: 0 }, endPoint: { x: 0, y: 1 } };
 
 const BANDS = [
   { min: 0, name: '极净', light: '#0F8F82', dark: '#2CC4B3' },
@@ -392,7 +395,7 @@ function networkText(m, size) {
 function root(children, padding, m) {
   return {
     type: 'widget',
-    backgroundColor: C.bg,
+    backgroundGradient: BACKGROUND,
     padding,
     gap: 0,
     url: SITE_URL,
@@ -552,7 +555,7 @@ function errorWidget(family, cfg, err) {
   }
   return {
     ...base,
-    backgroundColor: C.bg,
+    backgroundGradient: BACKGROUND,
     padding: 14,
     gap: 6,
     children: [
