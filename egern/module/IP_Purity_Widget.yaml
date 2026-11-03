@@ -1,5 +1,5 @@
 name: "IP 纯净度"
-description: "用 IPPure 检测出口 IP 的风险分、住宅/机房类型、地区和 ASN"
+description: "用 IPPure 检测出口 IP 的风险分、原生/广播、住宅/机房、地区和 ASN"
 author: "vfelix7"
 icon: "shield.lefthalf.filled"
 
@@ -18,8 +18,8 @@ env_schema:
     name: "刷新间隔（分钟）"
     default_value: "10"
   LABEL:
-    name: "标题"
-    default_value: "IP PURITY"
+    name: "名称"
+    description: "显示在 IP 右边，用来区分多个小组件；不填时显示检测策略名"
 
 scriptings:
   - generic:

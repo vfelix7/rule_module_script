@@ -70,11 +70,15 @@ Optional env:
 POLICY: "Proxy"         # policy group or node to check; empty follows routing rules
 MARK_IP: "true"         # false shows the full IP
 REFRESH_MINUTES: "10"
-LABEL: "IP PURITY"
+LABEL: "Tokyo"          # name shown next to the IP; defaults to the policy name
 ```
 
-The widget shows the egress IP's risk score, residential or data-center type,
-location, and ASN. Set `POLICY` to a landing node to check that node's IP.
+The widget reads like a test strip: five bands from 极净 to 很差, the band the
+IPPure risk score falls in is raised, and the score sits above the strip at its
+position. The thresholds (20, 40, 60, 80) are the widget's own, since IPPure
+publishes none, and IPv6 addresses are not scored. It also shows native or
+broadcast IP, residential or data center, location, ASN, and the IP. Set
+`POLICY` to a landing node to check that node's IP.
 
 ### Media & AI Unlock
 
