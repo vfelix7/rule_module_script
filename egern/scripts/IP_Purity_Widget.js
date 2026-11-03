@@ -7,7 +7,7 @@
  *   isBroadcast    广播 IP（注册地和所在地不同）/ 原生 IP
  *
  * 样式：一条「试纸」。五格从极净到很差，风险分落在哪格，哪格就显色凸起；
- * 分数居中放在试纸上方，下方的小三角对准亮起的那一格，最下面一排是五个档位名。
+ * 分数用那一格的颜色，居中放在试纸上方，下方的小三角对准亮起的那一格，最下面一排是五个档位名。
  * 分档是小组件自己定的（IPPure 没有公布）：0–19 极净，20–39 纯净，40–59 一般，60–79 较差，80 以上很差。
  *
  * 布局注意（真机上确认过）：Egern 里带 flex 的元素横竖两个方向都会撑满，写了 height 也只是可见部分的高度；
@@ -39,15 +39,18 @@ const C = {
   warn: { light: '#B4600F', dark: '#F0A040' },
 };
 
+// 每档的颜色：亮起的格子、分数、档位名用 light / dark；没亮的格子用 faded，是同一个颜色调淡（深色模式下调暗）。
+// faded 是在 OKLCH 里算好的：色相不变，彩度留一半，明度往底色靠 62%。
+// 不直接给原色加透明度：那样浅色模式下橙和红会淡成差不多的粉色、黄色淡成米色；
+// 深色模式下底色偏蓝，黄和橙会混成橄榄色和棕色，红会偏紫
 const BANDS = [
-  { min: 0, name: '极净', light: '#0F8F82', dark: '#2CC4B3' },
-  { min: 20, name: '纯净', light: '#4E9A2A', dark: '#84CC52' },
-  { min: 40, name: '一般', light: '#A87F00', dark: '#E9BE2C' },
-  { min: 60, name: '较差', light: '#C9601C', dark: '#F08C42' },
-  { min: 80, name: '很差', light: '#C8323C', dark: '#F05A62' },
+  { min: 0, name: '极净', light: '#0F8F82', dark: '#2CC4B3', faded: { light: '#A7D7CF', dark: '#1D5750' } },
+  { min: 20, name: '纯净', light: '#4E9A2A', dark: '#84CC52', faded: { light: '#B5DCA8', dark: '#3B5A27' } },
+  { min: 40, name: '一般', light: '#A87F00', dark: '#E9BE2C', faded: { light: '#E2CDA0', dark: '#655219' } },
+  { min: 60, name: '较差', light: '#C9601C', dark: '#F08C42', faded: { light: '#F9C0A3', dark: '#6B4021' } },
+  { min: 80, name: '很差', light: '#C8323C', dark: '#F05A62', faded: { light: '#FEB0AC', dark: '#6E2D2F' } },
 ];
 const solid = band => ({ light: band.light, dark: band.dark });
-const faded = band => ({ light: `${band.light}2E`, dark: `${band.dark}33` });
 
 // 全部用系统字体（SF Pro）。行框单位是字号：上沿到基线 0.95，基线到下沿 0.24；
 // 行框居中摆放时，基线在中心下方 (ascent - descent) / 2
@@ -284,16 +287,13 @@ function fiveCells(fill, height) {
 
 // ───────────────────────────── 试纸 ─────────────────────────────
 
-// 读数：分数加档位名；没有分数时（IPv6 或接口没给）显示原因
-function reading(m, numberSize, nameSize) {
+// 读数：只有分数，用它那一档的颜色（档位名试纸下面已经有了）；没有分数时（IPv6 或接口没给）显示原因。
+// 分数外面包一层 row，readingBlock 要给它加边距
+function reading(m, numberSize, noteSize) {
   if (m.score === null) {
-    return T(m.isV6 ? 'IPv6 不评分' : '暂无评分', nameSize + 2, C.soft, 'semibold');
+    return T(m.isV6 ? 'IPv6 不评分' : '暂无评分', noteSize, C.soft, 'semibold');
   }
-  // 档位名和数字居中对齐；按底边对齐时，数字下方的留白会让档位名看起来往下掉
-  return row([
-    T(String(Math.round(m.score)), numberSize, C.ink, 'bold'),
-    T(m.band.name, nameSize, solid(m.band), 'semibold'),
-  ], { gap: Math.max(3, Math.round(numberSize / 9)) });
+  return row([T(String(Math.round(m.score)), numberSize, solid(m.band), 'bold')]);
 }
 
 function strip(m, height) {
@@ -305,7 +305,7 @@ function strip(m, height) {
       flex: 1,
       height: h,
       borderRadius: h / 2,
-      backgroundColor: i === active ? solid(band) : faded(band),
+      backgroundColor: i === active ? solid(band) : band.faded,
       children: [],
     };
   }), { gap: 3, height: height + 4 });
@@ -349,7 +349,7 @@ function scaleHeight(m, s) {
 // 不能用固定长度的 spacer 垫：Egern 里它会在横向撑满，带着整列铺满一格，读数就被挤到左边了。
 // 没有分数时显示的是中文提示，不用挪
 function readingBlock(m, s, shift, height) {
-  const body = reading(m, s.number, s.name);
+  const body = reading(m, s.number, s.note);
   const pad = m.score === null ? 0 : Math.round(shift * 2);
   const moved = pad > 0 ? { ...body, padding: [pad, 0, 0, 0] } : body;
   return { type: 'stack', direction: 'row', children: [spacer(), moved, spacer()], ...(height ? { height } : {}) };
@@ -433,7 +433,7 @@ function smallWidget(m) {
     spacer(3),
     ipRow(m, 14, 9),
     spacer(),
-    ...gauge(m, { number: 28, name: 9, bar: 5, pointer: 8, legend: 9, space: 5 }),
+    ...gauge(m, { number: 28, note: 11, bar: 5, pointer: 8, legend: 9, space: 5 }),
     spacer(),
     row(traits(m).map(t => traitView(t, 10)), { gap: 9 }),
   ], [12, 13, 11, 13], m);
@@ -443,7 +443,7 @@ function smallWidget(m) {
 // 两者同字号、基线对齐；第二行左边「ASN」「运营商」（标签和值都是 10pt）、右边试纸；底行类型和名称。
 // 中间两行都写明高度，上下多出的空间由 spacer 平分
 function mediumWidget(m) {
-  const s = { number: 20, name: 10, bar: 6, pointer: 10, legend: 10, space: 6 };
+  const s = { number: 20, note: 12, bar: 6, pointer: 10, legend: 10, space: 6 };
   const ipSize = 20;
   const labelWidth = 32;
   const labelSize = 10;
@@ -514,7 +514,7 @@ function largeWidget(m) {
     spacer(4),
     ipRow(m, 22, 12),
     spacer(),
-    ...gauge(m, { number: 56, name: 12, bar: 11, pointer: 13, legend: 12, space: 7 }),
+    ...gauge(m, { number: 56, note: 14, bar: 11, pointer: 13, legend: 12, space: 7 }),
     spacer(),
     col([
       detail('类型', kind ? kind.long : '未知', kind?.good),

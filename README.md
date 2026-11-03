@@ -74,19 +74,25 @@ LABEL: "Tokyo"          # tells widgets apart: next to the IP, bottom right on m
 ```
 
 The widget reads like a test strip: five bands from 极净 to 很差, the band the
-IPPure risk score falls in is raised, the score sits centered above the strip,
-a pointer under the strip marks the raised band, and the band names run along
-the bottom. The thresholds (20, 40, 60, 80) are the widget's own, since IPPure
-publishes none, and IPv6 addresses are not scored. It also shows native or
-broadcast IP, residential or data center, location, ASN, and the IP. Set
-`POLICY` to a landing node to check that node's IP.
+IPPure risk score falls in is raised, the score sits centered above the strip
+in that band's color, a pointer under the strip marks the raised band, and the
+band names run along the bottom. The thresholds (20, 40, 60, 80) are the
+widget's own, since IPPure publishes none, and IPv6 addresses are not scored.
+It also shows native or broadcast IP, residential or data center, location,
+ASN, and the IP. Set `POLICY` to a landing node to check that node's IP.
 
 The medium widget has location and time on top. The IP sits at the left on
 the same line as the score, both 20pt; below them are the ASN and 运营商 rows on
 the left and the strip on the right. The IP type and the label are at the
-bottom. All text uses the system font, the band name next to the score matches
-the band names under the strip, and the gaps between strip, pointer and band
-names are equal.
+bottom. All text uses the system font, and the gaps between strip, pointer and
+band names are equal.
+
+The bands that are not raised use lighter shades of the same colors (darker in
+dark mode). These shades are fixed colors with the same hue, not the band color
+made transparent: over a white background a transparent orange and red both
+fade to a similar pink, and over the dark background yellow and orange turn
+olive and brown. Lock-screen widgets still show the band name after the score,
+since the system tints them in one color.
 
 In Egern, an element with `flex` fills both directions, even when it has a
 `height`, so a row that holds one grows taller and squeezes the spacers next to
