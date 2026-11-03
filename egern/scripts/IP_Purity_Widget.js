@@ -57,7 +57,6 @@ const FIGURES = 'DIN Alternate';
 const METRICS = {
   [READOUT]: { ascent: 0.72, descent: 0.32 },
   [FIGURES]: { ascent: 0.94, descent: 0.22 },
-  system: { ascent: 0.95, descent: 0.24 }, // SF Pro（拉丁字母和数字）
 };
 const baselineBelowCenter = (family, size) => ((METRICS[family].ascent - METRICS[family].descent) / 2) * size;
 
@@ -351,13 +350,13 @@ function scaleHeight(m, s) {
   return s.bar + 4 + s.space + (m.band ? Math.round(s.pointer * 0.8) + s.space : 0) + s.legend;
 }
 
-// 读数左右居中；shift 是要往下挪的点数（负数往上挪）：给读数加上边或下边距（内容整体居中，所以边距取 2 倍）。
+// 读数左右居中；shift 是要往下挪的点数：给读数加上边距（内容整体居中，所以边距取 2 倍）。
 // 不能用固定长度的 spacer 垫：Egern 里它会在横向撑满，带着整列铺满一格，读数就被挤到左边了。
 // 没有分数时显示的是中文提示，不用挪
 function readingBlock(m, s, shift, height) {
   const body = reading(m, s.number, s.name);
-  const pad = m.score === null ? 0 : Math.round(Math.abs(shift) * 2);
-  const moved = pad > 0 ? { ...body, padding: shift > 0 ? [pad, 0, 0, 0] : [0, 0, pad, 0] } : body;
+  const pad = m.score === null ? 0 : Math.round(shift * 2);
+  const moved = pad > 0 ? { ...body, padding: [pad, 0, 0, 0] } : body;
   return { type: 'stack', direction: 'row', children: [spacer(), moved, spacer()], ...(height ? { height } : {}) };
 }
 
@@ -449,58 +448,51 @@ function smallWidget(m) {
   ], [12, 13, 11, 13], m);
 }
 
-// 中号：左边是一列「标签 + 值」——地区、IPv4、ASN、运营商，四个值同样的字体和字号、每行一样高，
-// 放不下时折行或用省略号，不自动缩小（只有没打码的 IPv6 这种超长地址才缩）；
-// 右边分数和 IPv4 同一行（基线对齐），下面是试纸。时间在地区那一行的右边，底行是类型和名称
+// 中号：顶行地区和时间；中间两行左右分栏（左 4 右 3）。左边是「标签 + 值」：第一行 IPv4（和分数对齐），
+// 第二行 ASN 和运营商；右边是分数和试纸。底行类型和名称。中间两行都写明高度，上下多出的空间由 spacer 平分
 function mediumWidget(m) {
   const s = { number: 30, name: 12, bar: 6, pointer: 10, legend: 10, space: 6 };
-  const valueSize = 13;
-  const labelSize = 10;
+  const ipSize = 20;
   const labelWidth = 32;
-  const rowHeight = 19; // 不低于值的行高（中文约 1.4 个字号）
-  const rowGap = 2;
-  const value = (text, extra = {}) => T(text, valueSize, C.ink, 'semibold', extra);
+  const labelSize = 10;
   const columns = (left, right, extra) => row([
-    { ...(left || { type: 'stack', children: [] }), flex: 3 },
-    { ...right, flex: 2 },
+    { ...(left || { type: 'stack', children: [] }), flex: 4 },
+    { ...right, flex: 3 },
   ], { gap: 14, ...extra });
 
-  const place = [m.flag, m.country, m.city].filter(Boolean).join(' ');
-  const regionRow = columns(
-    field('地区', value(place), labelWidth, labelSize),
-    { type: 'stack', direction: 'row', children: [spacer(), T(m.time, 10, C.faint, 'medium')] },
-    { height: rowHeight },
-  );
-
-  // IPv4 和分数同一行，分数挪到和 IP 的基线对齐
-  const ipBaseline = baselineBelowCenter('system', valueSize);
-  const ipLine = columns(
-    field(ipLabel(m), value(m.shownIP, m.shownIP.length > 18 ? { minScale: 0.45 } : {}), labelWidth, labelSize),
+  // 第一行高度不能小于 IP 的行高，否则带 minScale 的 IP 会被缩小。
+  // IP 和分数都居中摆，分数往下挪一点，让两边的基线落在同一条线上
+  const headHeight = Math.ceil((METRICS[FIGURES].ascent + METRICS[FIGURES].descent) * ipSize);
+  const ipBaseline = baselineBelowCenter(FIGURES, ipSize);
+  const headline = columns(
+    field(ipLabel(m), ipText(m, ipSize), labelWidth, labelSize),
     readingBlock(m, s, ipBaseline - baselineBelowCenter(READOUT, s.number)),
-    { height: rowHeight },
+    { height: headHeight },
   );
 
-  // ASN、运营商；运营商名称太长时折成两行，再长用省略号（按最窄的中号估算值的宽度，约 137 点）
-  const orgLines = m.org && estimateWidth(m.org, valueSize) > 137 ? 2 : 1;
-  const orgHeight = orgLines === 2 ? rowHeight * 2 - 2 : rowHeight;
-  const asnRow = m.asn ? { ...field('ASN', value(m.asn), labelWidth, labelSize), height: rowHeight } : null;
-  const orgRow = m.org
-    ? { ...field('运营商', value(m.org, { maxLines: orgLines }), labelWidth, labelSize), height: orgHeight }
+  // ASN 在上，运营商在下；运营商名称太长时折成两行（按最窄的中号估算）
+  const orgLines = m.org && estimateWidth(m.org, 13) > 125 ? 2 : 1;
+  const asnHeight = 16;
+  const orgHeight = orgLines === 2 ? 34 : 18;
+  const asnRow = m.asn
+    ? { ...field('ASN', T(m.asn, 13, C.ink, 'bold', { family: FIGURES }), labelWidth, labelSize), height: asnHeight }
     : null;
-  const leftHeight = (asnRow ? rowHeight : 0) + (orgRow ? orgHeight : 0) + (asnRow && orgRow ? rowGap : 0);
+  const orgRow = m.org
+    ? { ...field('运营商', T(m.org, 13, C.ink, 'medium', { maxLines: orgLines, minScale: 0.75 }), labelWidth, labelSize), height: orgHeight }
+    : null;
+  const leftHeight = (asnRow ? asnHeight : 0) + (orgRow ? orgHeight : 0) + (asnRow && orgRow ? 6 : 0);
   const details = columns(
-    asnRow || orgRow ? col([asnRow, asnRow && orgRow ? spacer(rowGap) : null, orgRow, spacer()]) : null,
+    asnRow || orgRow ? col([asnRow, spacer(), orgRow]) : null,
     col([...scale(m, s), spacer()]),
     { alignItems: 'start', height: Math.max(scaleHeight(m, s), leftHeight) },
   );
-  // 分数基线到试纸的空隙取 s.space，跟试纸到小三角一样
-  const belowBaseline = rowHeight / 2 - ipBaseline;
+  // 分数基线到试纸的空隙也取 s.space，跟试纸到小三角一样
+  const belowBaseline = headHeight / 2 - ipBaseline;
 
   return root([
+    placeRow(m, 13, true),
     spacer(),
-    regionRow,
-    spacer(rowGap),
-    ipLine,
+    headline,
     spacer(Math.max(0, Math.round(s.space - belowBaseline))),
     details,
     spacer(),
