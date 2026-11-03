@@ -389,12 +389,31 @@ function ipText(m, size, extra = {}) {
   return T(m.shownIP, size, C.ink, 'bold', { family: FIGURES, minScale: m.shownIP.length > 18 ? 0.4 : 0.6, ...extra });
 }
 
-// IP 占满左边剩下的宽度（太长时才能缩小），名称贴右；行里有 flex，所以写明行高
-function ipRow(m, size, nameSize) {
+const ipLabel = m => (m.isV6 ? 'IPv6' : 'IPv4');
+
+// IP 前面标上 IPv4 / IPv6；IP 占满剩下的宽度（太长时才能缩小），名称贴右；行里有 flex，所以写明行高
+function ipRow(m, size, nameSize, labelSize) {
   return row([
+    T(ipLabel(m), labelSize, C.faint, 'medium'),
     ipText(m, size, { flex: 1 }),
     m.name ? T(m.name, nameSize, C.faint, 'medium', { minScale: 0.7 }) : null,
-  ], { gap: 6, height: Math.ceil(size * 1.3) });
+  ], { gap: 5, height: Math.ceil(size * 1.3) });
+}
+
+// 「标签 + 值」一行：标签浅灰小字、固定宽度，几行的值从同一条竖线开始。
+// 值带 flex（文字在格子里才会靠左、太长时才能缩小），所以这一行会被撑高，用的地方要写明高度
+function field(label, value, labelWidth, labelSize) {
+  return row([
+    { type: 'stack', direction: 'row', width: labelWidth, children: [T(label, labelSize, C.faint, 'medium'), spacer()] },
+    { ...value, flex: 1 },
+  ], { gap: 6 });
+}
+
+// 粗估文字宽度，用来判断运营商名称会不会折成两行（中文 1 个字号，大写和数字 0.64，小写 0.53）
+function estimateWidth(text, size) {
+  let em = 0;
+  for (const ch of text) em += /[　-鿿]/.test(ch) ? 1 : /[A-Z0-9]/.test(ch) ? 0.64 : /[a-z]/.test(ch) ? 0.53 : 0.3;
+  return em * size;
 }
 
 function traitView(t, size) {
@@ -404,12 +423,6 @@ function traitView(t, size) {
   ], { gap: 3 });
 }
 
-// ASN 加完整的运营商名称，合成一段文字，长了折成两行。
-// 要靠左对齐就得让它自己带 flex：带 flex 的文字在格子里靠左，包在 col 里的话整列会被摆在格子中间
-function networkText(m, size) {
-  const text = [m.asn, m.org].filter(Boolean).join(' · ');
-  return text ? T(text, size, C.soft, 'medium', { maxLines: 2, minScale: 0.85 }) : null;
-}
 
 function root(children, padding, m) {
   return {
@@ -427,7 +440,7 @@ function smallWidget(m) {
   return root([
     placeRow(m, 12, false),
     spacer(3),
-    ipRow(m, 14, 9),
+    ipRow(m, 14, 9, 9),
     spacer(),
     ...gauge(m, { number: 28, name: 11, bar: 5, pointer: 8, legend: 9, space: 5 }),
     spacer(),
@@ -435,11 +448,13 @@ function smallWidget(m) {
   ], [12, 13, 11, 13], m);
 }
 
-// 中号：顶行地区和时间；中间两行左右分栏（左 4 右 3），第一行 IP 和分数，第二行左边运营商、右边试纸；
-// 底行类型和名称。中间两行都写明高度，上下多出的空间由 spacer 平分
+// 中号：顶行地区和时间；中间两行左右分栏（左 4 右 3）。左边是「标签 + 值」：第一行 IPv4（和分数对齐），
+// 第二行 ASN 和运营商；右边是分数和试纸。底行类型和名称。中间两行都写明高度，上下多出的空间由 spacer 平分
 function mediumWidget(m) {
   const s = { number: 30, name: 12, bar: 6, pointer: 10, legend: 10, space: 6 };
-  const ipSize = 24;
+  const ipSize = 20;
+  const labelWidth = 32;
+  const labelSize = 10;
   const columns = (left, right, extra) => row([
     { ...(left || { type: 'stack', children: [] }), flex: 4 },
     { ...right, flex: 3 },
@@ -450,14 +465,26 @@ function mediumWidget(m) {
   const headHeight = Math.ceil((METRICS[FIGURES].ascent + METRICS[FIGURES].descent) * ipSize);
   const ipBaseline = baselineBelowCenter(FIGURES, ipSize);
   const headline = columns(
-    ipText(m, ipSize),
+    field(ipLabel(m), ipText(m, ipSize), labelWidth, labelSize),
     readingBlock(m, s, ipBaseline - baselineBelowCenter(READOUT, s.number)),
     { height: headHeight },
   );
+
+  // ASN 在上，运营商在下；运营商名称太长时折成两行（按最窄的中号估算）
+  const orgLines = m.org && estimateWidth(m.org, 13) > 125 ? 2 : 1;
+  const asnHeight = 16;
+  const orgHeight = orgLines === 2 ? 34 : 18;
+  const asnRow = m.asn
+    ? { ...field('ASN', T(m.asn, 13, C.ink, 'bold', { family: FIGURES }), labelWidth, labelSize), height: asnHeight }
+    : null;
+  const orgRow = m.org
+    ? { ...field('运营商', T(m.org, 13, C.ink, 'medium', { maxLines: orgLines, minScale: 0.75 }), labelWidth, labelSize), height: orgHeight }
+    : null;
+  const leftHeight = (asnRow ? asnHeight : 0) + (orgRow ? orgHeight : 0) + (asnRow && orgRow ? 6 : 0);
   const details = columns(
-    networkText(m, 11),
+    asnRow || orgRow ? col([asnRow, spacer(), orgRow]) : null,
     col([...scale(m, s), spacer()]),
-    { alignItems: 'start', height: Math.max(scaleHeight(m, s), 28) },
+    { alignItems: 'start', height: Math.max(scaleHeight(m, s), leftHeight) },
   );
   // 分数基线到试纸的空隙也取 s.space，跟试纸到小三角一样
   const belowBaseline = headHeight / 2 - ipBaseline;
@@ -479,7 +506,7 @@ function mediumWidget(m) {
 
 function detail(label, value, good) {
   return row([
-    { type: 'stack', direction: 'row', width: 36, children: [T(label, 12, C.faint, 'medium'), spacer()] },
+    { type: 'stack', direction: 'row', width: 42, children: [T(label, 12, C.faint, 'medium'), spacer()] },
     T(value, 13, good ? C.good : C.ink, 'medium', { minScale: 0.7, flex: 1 }),
   ], { gap: 8, height: 20 }); // 不低于中文的行高，否则带 minScale 的文字会被缩小
 }
@@ -491,14 +518,15 @@ function largeWidget(m) {
   return root([
     placeRow(m, 16, true),
     spacer(4),
-    ipRow(m, 22, 12),
+    ipRow(m, 22, 12, 12),
     spacer(),
     ...gauge(m, { number: 56, name: 16, bar: 11, pointer: 13, legend: 12, space: 7 }),
     spacer(),
     col([
       detail('类型', kind ? kind.long : '未知', kind?.good),
       detail('来源', source ? source.long : '未知', source?.good),
-      detail('网络', [m.asn, m.org].filter(Boolean).join(' ') || '未知'),
+      detail('ASN', m.asn || '未知'),
+      detail('运营商', m.org || '未知'),
       m.timezone ? detail('时区', m.timezone) : null,
       detail('检测', m.policy ? `策略「${m.policy}」` : '跟随分流规则'),
     ], { gap: 6 }),
