@@ -81,11 +81,12 @@ publishes none, and IPv6 addresses are not scored. It also shows native or
 broadcast IP, residential or data center, location, ASN, and the IP. Set
 `POLICY` to a landing node to check that node's IP.
 
-The medium widget has location and time on top. On the left, labeled rows
-show the IPv4 (or IPv6) address, the ASN and the operator; the IP row lines up
-with the score on the right, which sits above the strip. The IP type and the
-label are at the bottom. The gaps between strip, pointer and band names are
-equal.
+The medium widget has location and time on top. The IP sits at the left on
+the same line as the score, both 20pt; below them are the ASN and 运营商 rows on
+the left and the strip on the right. The IP type and the label are at the
+bottom. All text uses the system font, the band name next to the score matches
+the band names under the strip, and the gaps between strip, pointer and band
+names are equal.
 
 In Egern, an element with `flex` fills both directions, even when it has a
 `height`, so a row that holds one grows taller and squeezes the spacers next to

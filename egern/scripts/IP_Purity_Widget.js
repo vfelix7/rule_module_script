@@ -49,16 +49,11 @@ const BANDS = [
 const solid = band => ({ light: band.light, dark: band.dark });
 const faded = band => ({ light: `${band.light}2E`, dark: `${band.dark}33` });
 
-// 分数用 DIN Condensed（像检测仪器上的读数），IP 和 ASN 用 DIN Alternate；中文跟随系统字体
-const READOUT = 'DIN Condensed';
-const FIGURES = 'DIN Alternate';
-// 两种字体的行框，单位是字号，按真机截图量出来的：DIN Condensed 上沿几乎贴着数字顶，下面留了一大截，
-// 所以居中摆放时它的数字会比旁边的字高。行框居中时，基线在中心下方 (ascent - descent) / 2
-const METRICS = {
-  [READOUT]: { ascent: 0.72, descent: 0.32 },
-  [FIGURES]: { ascent: 0.94, descent: 0.22 },
-};
-const baselineBelowCenter = (family, size) => ((METRICS[family].ascent - METRICS[family].descent) / 2) * size;
+// 全部用系统字体（SF Pro）。行框单位是字号：上沿到基线 0.95，基线到下沿 0.24；
+// 行框居中摆放时，基线在中心下方 (ascent - descent) / 2
+const FONT = { ascent: 0.95, descent: 0.24 };
+const lineHeight = size => (FONT.ascent + FONT.descent) * size;
+const baselineBelowCenter = size => ((FONT.ascent - FONT.descent) / 2) * size;
 
 const COUNTRY_ZH = {
   HK: '香港', MO: '澳门', TW: '台湾', CN: '中国', JP: '日本', KR: '韩国', SG: '新加坡', MY: '马来西亚',
@@ -296,7 +291,7 @@ function reading(m, numberSize, nameSize) {
   }
   // 档位名和数字居中对齐；按底边对齐时，数字下方的留白会让档位名看起来往下掉
   return row([
-    T(String(Math.round(m.score)), numberSize, C.ink, 'bold', { family: READOUT }),
+    T(String(Math.round(m.score)), numberSize, C.ink, 'bold'),
     T(m.band.name, nameSize, solid(m.band), 'semibold'),
   ], { gap: Math.max(3, Math.round(numberSize / 9)) });
 }
@@ -364,7 +359,7 @@ function readingBlock(m, s, shift, height) {
 // 数字正好占满这个框、下沿就是基线；这样读数到试纸的空隙就和试纸到小三角的一样（s.space）
 function gauge(m, s) {
   const height = Math.round(s.number * 0.75);
-  const shift = height / 2 - 0.01 * s.number - baselineBelowCenter(READOUT, s.number);
+  const shift = height / 2 - 0.01 * s.number - baselineBelowCenter(s.number);
   return [
     readingBlock(m, s, shift, height),
     spacer(s.space),
@@ -386,15 +381,12 @@ function placeRow(m, size, withCity) {
 
 // IP 是这台出口的身份，用深色大字，不再当成次要信息；没打码的 IPv6 很长，允许缩得更小
 function ipText(m, size, extra = {}) {
-  return T(m.shownIP, size, C.ink, 'bold', { family: FIGURES, minScale: m.shownIP.length > 18 ? 0.4 : 0.6, ...extra });
+  return T(m.shownIP, size, C.ink, 'bold', { minScale: m.shownIP.length > 18 ? 0.4 : 0.6, ...extra });
 }
 
-const ipLabel = m => (m.isV6 ? 'IPv6' : 'IPv4');
-
-// IP 前面标上 IPv4 / IPv6；IP 占满剩下的宽度（太长时才能缩小），名称贴右；行里有 flex，所以写明行高
-function ipRow(m, size, nameSize, labelSize) {
+// IP 占满剩下的宽度（太长时才能缩小），名称贴右；行里有 flex，所以写明行高
+function ipRow(m, size, nameSize) {
   return row([
-    T(ipLabel(m), labelSize, C.faint, 'medium'),
     ipText(m, size, { flex: 1 }),
     m.name ? T(m.name, nameSize, C.faint, 'medium', { minScale: 0.7 }) : null,
   ], { gap: 5, height: Math.ceil(size * 1.3) });
@@ -423,7 +415,6 @@ function traitView(t, size) {
   ], { gap: 3 });
 }
 
-
 function root(children, padding, m) {
   return {
     type: 'widget',
@@ -440,18 +431,19 @@ function smallWidget(m) {
   return root([
     placeRow(m, 12, false),
     spacer(3),
-    ipRow(m, 14, 9, 9),
+    ipRow(m, 14, 9),
     spacer(),
-    ...gauge(m, { number: 28, name: 11, bar: 5, pointer: 8, legend: 9, space: 5 }),
+    ...gauge(m, { number: 28, name: 9, bar: 5, pointer: 8, legend: 9, space: 5 }),
     spacer(),
     row(traits(m).map(t => traitView(t, 10)), { gap: 9 }),
   ], [12, 13, 11, 13], m);
 }
 
-// 中号：顶行地区和时间；中间两行左右分栏（左 4 右 3）。左边是「标签 + 值」：第一行 IPv4（和分数对齐），
-// 第二行 ASN 和运营商；右边是分数和试纸。底行类型和名称。中间两行都写明高度，上下多出的空间由 spacer 平分
+// 中号：顶行地区和时间；中间两行左右分栏（左 4 右 3）。第一行左边 IP（靠左，不加标签）、右边分数，
+// 两者同字号、基线对齐；第二行左边「ASN」「运营商」（标签和值都是 10pt）、右边试纸；底行类型和名称。
+// 中间两行都写明高度，上下多出的空间由 spacer 平分
 function mediumWidget(m) {
-  const s = { number: 30, name: 12, bar: 6, pointer: 10, legend: 10, space: 6 };
+  const s = { number: 20, name: 10, bar: 6, pointer: 10, legend: 10, space: 6 };
   const ipSize = 20;
   const labelWidth = 32;
   const labelSize = 10;
@@ -462,27 +454,29 @@ function mediumWidget(m) {
 
   // 第一行高度不能小于 IP 的行高，否则带 minScale 的 IP 会被缩小。
   // IP 和分数都居中摆，分数往下挪一点，让两边的基线落在同一条线上
-  const headHeight = Math.ceil((METRICS[FIGURES].ascent + METRICS[FIGURES].descent) * ipSize);
-  const ipBaseline = baselineBelowCenter(FIGURES, ipSize);
+  const headHeight = Math.ceil(lineHeight(ipSize));
+  const ipBaseline = baselineBelowCenter(ipSize);
   const headline = columns(
-    field(ipLabel(m), ipText(m, ipSize), labelWidth, labelSize),
-    readingBlock(m, s, ipBaseline - baselineBelowCenter(READOUT, s.number)),
+    ipText(m, ipSize),
+    readingBlock(m, s, ipBaseline - baselineBelowCenter(s.number)),
     { height: headHeight },
   );
 
   // ASN 在上，运营商在下；运营商名称太长时折成两行（按最窄的中号估算）
-  const orgLines = m.org && estimateWidth(m.org, 13) > 125 ? 2 : 1;
-  const asnHeight = 16;
-  const orgHeight = orgLines === 2 ? 34 : 18;
+  const valueSize = 10;
+  const ipGap = 12; // IP 和 ASN 之间多留的空隙
+  const orgLines = m.org && estimateWidth(m.org, valueSize) > 128 ? 2 : 1;
+  const asnHeight = 14;
+  const orgHeight = orgLines === 2 ? 27 : 14;
   const asnRow = m.asn
-    ? { ...field('ASN', T(m.asn, 13, C.ink, 'bold', { family: FIGURES }), labelWidth, labelSize), height: asnHeight }
+    ? { ...field('ASN', T(m.asn, valueSize, C.ink, 'semibold'), labelWidth, labelSize), height: asnHeight }
     : null;
   const orgRow = m.org
-    ? { ...field('运营商', T(m.org, 13, C.ink, 'medium', { maxLines: orgLines, minScale: 0.75 }), labelWidth, labelSize), height: orgHeight }
+    ? { ...field('运营商', T(m.org, valueSize, C.ink, 'semibold', { maxLines: orgLines }), labelWidth, labelSize), height: orgHeight }
     : null;
-  const leftHeight = (asnRow ? asnHeight : 0) + (orgRow ? orgHeight : 0) + (asnRow && orgRow ? 6 : 0);
+  const leftHeight = ipGap + (asnRow ? asnHeight : 0) + (orgRow ? orgHeight : 0) + (asnRow && orgRow ? 6 : 0);
   const details = columns(
-    asnRow || orgRow ? col([asnRow, spacer(), orgRow]) : null,
+    asnRow || orgRow ? col([spacer(ipGap), asnRow, asnRow && orgRow ? spacer(6) : null, orgRow, spacer()]) : null,
     col([...scale(m, s), spacer()]),
     { alignItems: 'start', height: Math.max(scaleHeight(m, s), leftHeight) },
   );
@@ -518,9 +512,9 @@ function largeWidget(m) {
   return root([
     placeRow(m, 16, true),
     spacer(4),
-    ipRow(m, 22, 12, 12),
+    ipRow(m, 22, 12),
     spacer(),
-    ...gauge(m, { number: 56, name: 16, bar: 11, pointer: 13, legend: 12, space: 7 }),
+    ...gauge(m, { number: 56, name: 12, bar: 11, pointer: 13, legend: 12, space: 7 }),
     spacer(),
     col([
       detail('类型', kind ? kind.long : '未知', kind?.good),
@@ -562,7 +556,7 @@ function circularWidget(m) {
       backgroundImage: gaugeSvg(m.score === null ? 0 : m.score / 100),
       children: [
         spacer(),
-        center(T(m.score === null ? '—' : String(Math.round(m.score)), 18, null, 'bold', { family: READOUT })),
+        center(T(m.score === null ? '—' : String(Math.round(m.score)), 18, null, 'bold')),
         center(T(m.band ? m.band.name : m.isV6 ? 'IPv6' : '未评分', 9, null, 'medium')),
         spacer(),
       ],
@@ -580,7 +574,7 @@ function rectangularWidget(m) {
     children: [
       row([T(m.flag, 12), T([m.country, m.city].filter(Boolean).join(' '), 13, null, 'semibold', { minScale: 0.6 })], { gap: 4 }),
       row([
-        T(m.score === null ? '—' : String(Math.round(m.score)), 17, null, 'bold', { family: READOUT }),
+        T(m.score === null ? '—' : String(Math.round(m.score)), 17, null, 'bold'),
         T(m.band ? m.band.name : m.isV6 ? 'IPv6 不评分' : '暂无评分', 12, null, 'semibold'),
       ], { gap: 4 }),
       T(kinds || m.shownIP, 12, null, 'regular', { minScale: 0.6 }),
