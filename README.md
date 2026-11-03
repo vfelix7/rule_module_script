@@ -113,3 +113,25 @@ memory, and traffic. The large widget shows detail cards for up to 3 servers
 price) and compact rows for more. Lock-screen sizes are supported. The global
 Turnstile option of the dashboard must be off, because widgets cannot pass it.
 Credentials are read only from the Egern module environment.
+
+### CF Server Monitor · Latency & Traffic
+
+A variant of the CF Server Monitor widget that focuses on ISP latency and
+monthly traffic. It uses the same env as above and can be installed alongside
+the original module (fill the env in each module).
+
+- Script: `egern/scripts/CF_Server_Monitor_Net_Widget.js`
+- Module: `egern/module/CF_Server_Monitor_Net_Widget.yaml`
+
+Module URL:
+
+```text
+https://raw.githubusercontent.com/vfelix7/rule_module_script/refs/heads/master/egern/module/CF_Server_Monitor_Net_Widget.yaml
+```
+
+The medium widget lists each server with its 电信 / 联通 / 移动 latency and
+traffic used / limit. The large widget shows per-ISP latency with packet loss,
+a 2-hour latency chart for up to 2 servers (needs 三网详情, on by default), and
+a traffic bar with a depletion estimate. The small widget shows one server's
+ISP latency and traffic, or average latency and traffic for up to 3 servers.
+On the lock screen, the circular widget shows the highest traffic usage.
