@@ -7,7 +7,7 @@
  *   isBroadcast    广播 IP（注册地和所在地不同）/ 原生 IP
  *
  * 样式：一条「试纸」。五格从极净到很差，风险分落在哪格，哪格就显色凸起；
- * 分数浮在试纸上方、跟着分数左右移动，下方的小三角指着确切位置。
+ * 分数居中放在试纸上方，下方的小三角对准亮起的那一格，最下面一排是五个档位名。
  * 分档是小组件自己定的（IPPure 没有公布）：0–19 极净，20–39 纯净，40–59 一般，60–79 较差，80 以上很差。
  *
  * 布局注意（真机上确认过）：Egern 里带 flex 的元素横竖两个方向都会撑满，写了 height 也只是可见部分的高度；
@@ -262,30 +262,25 @@ function spacer(length) {
   return length === undefined ? { type: 'spacer' } : { type: 'spacer', length };
 }
 
-// 只占横向比例的空白块；装它的 row 必须写 height，否则会被它纵向撑开
-function grow(flex) {
-  return { type: 'stack', flex: Math.max(flex, 0.01), children: [] };
-}
-
 function icon(name, size, color) {
   const el = { type: 'image', src: `sf-symbol:${name}`, width: size, height: size };
   if (color) el.color = color;
   return el;
 }
 
-function center(child) {
-  return row([spacer(), child, spacer()]);
+function center(child, height) {
+  return row([spacer(), child, spacer()], height ? { height } : {});
 }
 
-// 让一个元素在整行里按分数左右滑动：0 分贴左，100 分贴右。height 是这一行的高度，必须写明
-function slide(child, score, height) {
-  if (score === null) return row([child, spacer()]);
-  return row([grow(score), child, grow(100 - score)], { height });
+// 和试纸对齐的五格：每格 flex 1、间距 3，跟试纸的五段一样宽，格子里的东西就正对着那一段。
+// 格子带 flex 会把这一行撑高，所以 height 必须写明
+function fiveCells(fill, height) {
+  return row(BANDS.map((band, i) => ({ type: 'stack', direction: 'row', flex: 1, children: fill(band, i) })), { gap: 3, height });
 }
 
 // ───────────────────────────── 试纸 ─────────────────────────────
 
-// 读数行的高度取数字字号：DIN Condensed 的数字只占行高中间一段，行框上下多出的部分不会被裁到
+// 读数：分数加档位名；没有分数时（IPv6 或接口没给）显示原因
 function reading(m, numberSize, nameSize) {
   if (m.score === null) {
     return T(m.isV6 ? 'IPv6 不评分' : '暂无评分', nameSize + 2, C.soft, 'semibold');
@@ -312,19 +307,35 @@ function strip(m, height) {
   }), { gap: 3, height: height + 4 });
 }
 
+// 小三角放在亮起那一格的正中间
 function pointer(m, size) {
-  if (m.score === null) return null;
+  if (!m.band) return null;
   const height = Math.round(size * 0.8);
-  return slide({ type: 'image', src: 'sf-symbol:triangle.fill', width: size, height, color: C.ink }, m.score, height);
+  const mark = { type: 'image', src: 'sf-symbol:triangle.fill', width: size, height, color: C.ink };
+  return fiveCells(band => (band === m.band ? [spacer(), mark, spacer()] : []), height);
 }
 
-function legend(m, size = 10) {
-  const active = m.band ? BANDS.indexOf(m.band) : -1;
-  return row(BANDS.map((band, i) => row([
+// 每一格下面的档位名，亮起那一格用它的颜色加粗
+function legend(m, size) {
+  return fiveCells(band => [
     spacer(),
-    T(band.name, size, i === active ? solid(band) : C.faint, i === active ? 'semibold' : 'regular'),
+    T(band.name, size, band === m.band ? solid(band) : C.faint, band === m.band ? 'semibold' : 'regular'),
     spacer(),
-  ], { flex: 1 })), { gap: 3, height: size + 6 });
+  ], size + 6);
+}
+
+// 读数、试纸、小三角、档位名从上到下排好；三个尺寸只是字号和间距不同。
+// 读数那一行的高度取数字字号，DIN Condensed 行框上下多出来的空白就不会把试纸推远
+function gauge(m, s) {
+  return [
+    center(reading(m, s.number, s.name), s.number),
+    spacer(s.gap),
+    strip(m, s.bar),
+    spacer(s.gap + 3), // 小三角和试纸之间留出空隙
+    pointer(m, s.pointer),
+    m.band ? spacer(2) : null,
+    legend(m, s.legend),
+  ];
 }
 
 // ───────────────────────────── 布局 ─────────────────────────────
@@ -383,11 +394,7 @@ function smallWidget(m) {
     spacer(3),
     ipRow(m, 14, 9),
     spacer(),
-    slide(reading(m, 30, 11), m.score, 30),
-    spacer(2),
-    strip(m, 5),
-    m.score === null ? null : spacer(2),
-    pointer(m, 7),
+    ...gauge(m, { number: 28, name: 11, bar: 5, pointer: 8, legend: 9, gap: 3 }),
     spacer(),
     row(traits(m).map(t => traitView(t, 10)), { gap: 9 }),
   ], [12, 13, 11, 13], m);
@@ -405,11 +412,7 @@ function mediumWidget(m) {
 
   const verdict = col([
     spacer(),
-    slide(reading(m, 34, 12), m.score, 34),
-    spacer(2),
-    strip(m, 7),
-    m.score === null ? null : spacer(2),
-    pointer(m, 8),
+    ...gauge(m, { number: 30, name: 12, bar: 6, pointer: 10, legend: 10, gap: 4 }),
     spacer(),
   ], { flex: 3 });
 
@@ -443,13 +446,7 @@ function largeWidget(m) {
     spacer(4),
     ipRow(m, 22, 12),
     spacer(),
-    slide(reading(m, 56, 16), m.score, 56),
-    spacer(3),
-    strip(m, 11),
-    m.score === null ? null : spacer(3),
-    pointer(m, 11),
-    spacer(6),
-    legend(m),
+    ...gauge(m, { number: 56, name: 16, bar: 11, pointer: 13, legend: 12, gap: 5 }),
     spacer(),
     col([
       detail('类型', kind ? kind.long : '未知', kind?.good),

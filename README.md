@@ -74,8 +74,9 @@ LABEL: "Tokyo"          # tells widgets apart: next to the IP, bottom right on m
 ```
 
 The widget reads like a test strip: five bands from 极净 to 很差, the band the
-IPPure risk score falls in is raised, and the score sits above the strip at its
-position. The thresholds (20, 40, 60, 80) are the widget's own, since IPPure
+IPPure risk score falls in is raised, the score sits centered above the strip,
+a pointer under the strip marks the raised band, and the band names run along
+the bottom. The thresholds (20, 40, 60, 80) are the widget's own, since IPPure
 publishes none, and IPv6 addresses are not scored. It also shows native or
 broadcast IP, residential or data center, location, ASN, and the IP. Set
 `POLICY` to a landing node to check that node's IP.
