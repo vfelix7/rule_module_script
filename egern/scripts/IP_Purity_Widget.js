@@ -27,18 +27,16 @@ const API_URL = 'https://my.ippure.com/v1/info';
 const SITE_URL = 'https://ippure.com/';
 const TIMEOUT = 8000;
 
-// 底色和文字灰度跟 CF 探针「流量延迟版」一致：浅色是白到浅灰蓝的渐变，深色是 GitHub 那种深灰；
+// 底色取 CF 探针「流量延迟版」渐变最上方的颜色（纯色，不渐变），文字灰度也跟它一致；
 // 彩色只用来表达含义
 const C = {
-  bgTop: { light: '#FFFFFF', dark: '#161B22' },
-  bgBottom: { light: '#EEF1F5', dark: '#0D1117' },
+  bg: { light: '#FFFFFF', dark: '#161B22' },
   ink: { light: '#1F2328', dark: '#E6EDF3' },
   soft: { light: '#59636E', dark: '#8B949E' },
   faint: { light: '#818B98', dark: '#6E7681' },
   good: { light: '#0F8F82', dark: '#3CCFBD' },
   warn: { light: '#B4600F', dark: '#F0A040' },
 };
-const BACKGROUND = { type: 'linear', colors: [C.bgTop, C.bgBottom], startPoint: { x: 0, y: 0 }, endPoint: { x: 0, y: 1 } };
 
 const BANDS = [
   { min: 0, name: '极净', light: '#0F8F82', dark: '#2CC4B3' },
@@ -53,6 +51,13 @@ const faded = band => ({ light: `${band.light}2E`, dark: `${band.dark}33` });
 // 分数用 DIN Condensed（像检测仪器上的读数），IP 和 ASN 用 DIN Alternate；中文跟随系统字体
 const READOUT = 'DIN Condensed';
 const FIGURES = 'DIN Alternate';
+// 两种字体的行框，单位是字号，按真机截图量出来的：DIN Condensed 上沿几乎贴着数字顶，下面留了一大截，
+// 所以居中摆放时它的数字会比旁边的字高。行框居中时，基线在中心下方 (ascent - descent) / 2
+const METRICS = {
+  [READOUT]: { ascent: 0.72, descent: 0.32 },
+  [FIGURES]: { ascent: 0.94, descent: 0.22 },
+};
+const baselineBelowCenter = (family, size) => ((METRICS[family].ascent - METRICS[family].descent) / 2) * size;
 
 const COUNTRY_ZH = {
   HK: '香港', MO: '澳门', TW: '台湾', CN: '中国', JP: '日本', KR: '韩国', SG: '新加坡', MY: '马来西亚',
@@ -344,12 +349,23 @@ function scaleHeight(m, s) {
   return s.bar + 4 + s.space + (m.band ? Math.round(s.pointer * 0.8) + s.space : 0) + s.legend;
 }
 
-// 小号、大号：读数居中放在试纸上方。读数那一行的高度取数字字号，
-// DIN Condensed 行框上下多出来的空白就不会把试纸推远
+// 读数左右居中；shift 是要往下挪的点数：在读数上面垫一段空白（内容整体居中，所以垫 2 倍）。
+// 没有分数时显示的是中文提示，不用挪
+function readingBlock(m, s, shift, height) {
+  const body = reading(m, s.number, s.name);
+  const pad = m.score === null ? 0 : Math.round(shift * 2);
+  const moved = pad > 0 ? col([spacer(pad), body]) : body;
+  return { type: 'stack', direction: 'row', children: [spacer(), moved, spacer()], ...(height ? { height } : {}) };
+}
+
+// 小号、大号：读数居中放在试纸上方。读数的框只比数字略高（0.75 个字号），再把读数往下挪到
+// 数字正好占满这个框、下沿就是基线；这样读数到试纸的空隙就和试纸到小三角的一样（s.space）
 function gauge(m, s) {
+  const height = Math.round(s.number * 0.75);
+  const shift = height / 2 - 0.01 * s.number - baselineBelowCenter(READOUT, s.number);
   return [
-    center(reading(m, s.number, s.name), s.number),
-    spacer(s.gap),
+    readingBlock(m, s, shift, height),
+    spacer(s.space),
     ...scale(m, s),
   ];
 }
@@ -386,7 +402,8 @@ function traitView(t, size) {
   ], { gap: 3 });
 }
 
-// ASN 加完整的运营商名称，合成一段文字直接放在列里，按列宽折行（最多两行），不用 flex
+// ASN 加完整的运营商名称，合成一段文字，长了折成两行。
+// 要靠左对齐就得让它自己带 flex：带 flex 的文字在格子里靠左，包在 col 里的话整列会被摆在格子中间
 function networkText(m, size) {
   const text = [m.asn, m.org].filter(Boolean).join(' · ');
   return text ? T(text, size, C.soft, 'medium', { maxLines: 2, minScale: 0.85 }) : null;
@@ -395,7 +412,7 @@ function networkText(m, size) {
 function root(children, padding, m) {
   return {
     type: 'widget',
-    backgroundGradient: BACKGROUND,
+    backgroundColor: C.bg,
     padding,
     gap: 0,
     url: SITE_URL,
@@ -410,38 +427,44 @@ function smallWidget(m) {
     spacer(3),
     ipRow(m, 14, 9),
     spacer(),
-    ...gauge(m, { number: 28, name: 11, bar: 5, pointer: 8, legend: 9, gap: 3, space: 5 }),
+    ...gauge(m, { number: 28, name: 11, bar: 5, pointer: 8, legend: 9, space: 5 }),
     spacer(),
     row(traits(m).map(t => traitView(t, 10)), { gap: 9 }),
   ], [12, 13, 11, 13], m);
 }
 
-// 中号：顶行地区和时间；中间两行左右分栏（左 4 右 3），第一行 IP 和分数放在同一行、上下居中对齐，
-// 第二行左边运营商、右边试纸；底行类型和名称。中间两行都写明高度，上下多出的空间由 spacer 平分
+// 中号：顶行地区和时间；中间两行左右分栏（左 4 右 3），第一行 IP 和分数，第二行左边运营商、右边试纸；
+// 底行类型和名称。中间两行都写明高度，上下多出的空间由 spacer 平分
 function mediumWidget(m) {
   const s = { number: 30, name: 12, bar: 6, pointer: 10, legend: 10, space: 6 };
   const ipSize = 24;
   const columns = (left, right, extra) => row([
-    { ...left, flex: 4 },
+    { ...(left || { type: 'stack', children: [] }), flex: 4 },
     { ...right, flex: 3 },
   ], { gap: 14, ...extra });
 
+  // 第一行高度不能小于 IP 的行高，否则带 minScale 的 IP 会被缩小。
+  // IP 和分数都居中摆，分数往下挪一点，让两边的基线落在同一条线上
+  const headHeight = Math.ceil((METRICS[FIGURES].ascent + METRICS[FIGURES].descent) * ipSize);
+  const ipBaseline = baselineBelowCenter(FIGURES, ipSize);
   const headline = columns(
     ipText(m, ipSize),
-    { type: 'stack', direction: 'row', children: [spacer(), reading(m, s.number, s.name), spacer()] },
-    { height: Math.max(s.number, Math.ceil(ipSize * 1.3)) },
+    readingBlock(m, s, ipBaseline - baselineBelowCenter(READOUT, s.number)),
+    { height: headHeight },
   );
   const details = columns(
-    col([networkText(m, 11), spacer()]),
+    networkText(m, 11),
     col([...scale(m, s), spacer()]),
     { alignItems: 'start', height: Math.max(scaleHeight(m, s), 28) },
   );
+  // 分数基线到试纸的空隙也取 s.space，跟试纸到小三角一样
+  const belowBaseline = headHeight / 2 - ipBaseline;
 
   return root([
     placeRow(m, 13, true),
     spacer(),
     headline,
-    spacer(3),
+    spacer(Math.max(0, Math.round(s.space - belowBaseline))),
     details,
     spacer(),
     row([
@@ -456,7 +479,7 @@ function detail(label, value, good) {
   return row([
     { type: 'stack', direction: 'row', width: 36, children: [T(label, 12, C.faint, 'medium'), spacer()] },
     T(value, 13, good ? C.good : C.ink, 'medium', { minScale: 0.7, flex: 1 }),
-  ], { gap: 8, height: 18 });
+  ], { gap: 8, height: 20 }); // 不低于中文的行高，否则带 minScale 的文字会被缩小
 }
 
 function largeWidget(m) {
@@ -468,7 +491,7 @@ function largeWidget(m) {
     spacer(4),
     ipRow(m, 22, 12),
     spacer(),
-    ...gauge(m, { number: 56, name: 16, bar: 11, pointer: 13, legend: 12, gap: 5, space: 7 }),
+    ...gauge(m, { number: 56, name: 16, bar: 11, pointer: 13, legend: 12, space: 7 }),
     spacer(),
     col([
       detail('类型', kind ? kind.long : '未知', kind?.good),
@@ -555,7 +578,7 @@ function errorWidget(family, cfg, err) {
   }
   return {
     ...base,
-    backgroundGradient: BACKGROUND,
+    backgroundColor: C.bg,
     padding: 14,
     gap: 6,
     children: [
