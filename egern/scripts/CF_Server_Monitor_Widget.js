@@ -18,7 +18,7 @@
  *   EXPIRE_WARN_DAYS: Warn when a server expires within this many days. Default: 14
  *   MAX_ROWS: Servers shown in the medium widget. Default: 4
  *
- * Module: egern/yaml/CF_Server_Monitor_Widget.yaml
+ * Module: egern/module/CF_Server_Monitor_Widget.yaml
  * 本地脚本用法：可以直接改下面的 CONFIG（Env 优先）。仓库是公开的，令牌和密码只填在 Egern 的 Env 里，别写进这个文件。
  */
 

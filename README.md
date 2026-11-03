@@ -7,7 +7,7 @@ Egern and Surge rules, modules, and scripts.
 ### World Cup Schedule
 
 - Script: `egern/scripts/WorldCup_Widget.js`
-- Config snippet: `egern/yaml/WorldCup_Widget.yaml`
+- Config snippet: `egern/module/WorldCup_Widget.yaml`
 - Surge module: `surge/module/WorldCup_Surge.sgmodule`
 - Data source: ESPN FIFA World Cup (`fifa.world`)
 
@@ -32,12 +32,12 @@ https://raw.githubusercontent.com/vfelix7/rule_module_script/refs/heads/master/s
 ### Streaming and AI Unlock
 
 - Script: `egern/scripts/Streaming_Unlock_Widget.js`
-- Config snippet: `egern/yaml/Streaming_Unlock_Widget.yaml`
+- Config snippet: `egern/module/Streaming_Unlock_Widget.yaml`
 
 Module URL:
 
 ```text
-https://raw.githubusercontent.com/vfelix7/rule_module_script/refs/heads/master/egern/yaml/Streaming_Unlock_Widget.yaml
+https://raw.githubusercontent.com/vfelix7/rule_module_script/refs/heads/master/egern/module/Streaming_Unlock_Widget.yaml
 ```
 
 No environment variables are required. Each service request omits `policy` and
@@ -47,12 +47,12 @@ for YouTube, Netflix, Disney+, ChatGPT, Claude, and Gemini.
 ### Codex Usage
 
 - Script: `egern/scripts/Codex_Usage_Widget.js`
-- Module: `egern/yaml/Codex_Usage_Widget.yaml`
+- Module: `egern/module/Codex_Usage_Widget.yaml`
 
 Module URL:
 
 ```text
-https://raw.githubusercontent.com/vfelix7/rule_module_script/refs/heads/master/egern/yaml/Codex_Usage_Widget.yaml
+https://raw.githubusercontent.com/vfelix7/rule_module_script/refs/heads/master/egern/module/Codex_Usage_Widget.yaml
 ```
 
 Required module env:
@@ -76,13 +76,13 @@ Egern module environment and are not stored in the repository.
 ### CF Server Monitor
 
 - Script: `egern/scripts/CF_Server_Monitor_Widget.js`
-- Module: `egern/yaml/CF_Server_Monitor_Widget.yaml`
+- Module: `egern/module/CF_Server_Monitor_Widget.yaml`
 - Data source: `GET /api/servers` of [CF-Server-Monitor](https://github.com/huilang-me/CF-Server-Monitor)
 
 Module URL:
 
 ```text
-https://raw.githubusercontent.com/vfelix7/rule_module_script/refs/heads/master/egern/yaml/CF_Server_Monitor_Widget.yaml
+https://raw.githubusercontent.com/vfelix7/rule_module_script/refs/heads/master/egern/module/CF_Server_Monitor_Widget.yaml
 ```
 
 Required module env:
