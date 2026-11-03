@@ -1,6 +1,7 @@
 name: "媒体与 AI 解锁"
 description: "按 Egern 分流规则检测 YouTube、Netflix、Disney+、ChatGPT、Claude 和 Gemini"
 author: "vfelix7"
+icon: "play.tv"
 
 scriptings:
   - generic:
@@ -15,3 +16,5 @@ widgets:
 
 # 无需配置环境变量。
 # 脚本不会强制指定 policy，各检测请求分别遵循当前 Egern 分流规则。
+# AI 三项会对照官方支持地区判断：出口在香港时 ChatGPT / Claude 显示锁定，Gemini 可用。
+# 「仅网页」表示出口 IP 被 OpenAI 标为机房 / VPN，网页版能用、App 会被拒。

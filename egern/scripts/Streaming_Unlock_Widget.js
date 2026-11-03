@@ -8,6 +8,12 @@
  * 路由说明：
  *   所有 ctx.http 请求均不设置 policy / policyDescriptor，
  *   因此每个检测域名会分别按照 Egern 当前配置的分流规则处理。
+ *
+ * AI 判定（参考 RegionRestrictionCheck 的现行做法）：
+ *   ChatGPT：api.openai.com 合规接口 + ios.chat.openai.com 拦截页判断地区封锁和 App 封锁，
+ *            出口地区取 chatgpt.com/cdn-cgi/trace，再对照官方不支持地区。
+ *   Claude ：跟随 claude.ai/ 的跳转，跳到 app-unavailable-in-region 即锁区；出口地区同样对照官方名单。
+ *   Gemini ：页面里的可用标记和国家代码，再对照官方不支持地区（Gemini 支持香港，ChatGPT / Claude 不支持）。
  */
 
 const COLORS = {
@@ -40,7 +46,32 @@ const TRACE_HEADERS = {
   'User-Agent': USER_AGENT,
 };
 
+const DESKTOP_UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
+  '(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+
 const REQUEST_TIMEOUT = 7000;
+
+// 官方「支持地区」名单里没有的常见出口地区，只列确定不支持的；以官网为准：
+//   ChatGPT https://help.openai.com/en/articles/7947663
+//   Claude  https://www.anthropic.com/supported-countries
+//   Gemini  https://support.google.com/gemini/answer/13575153（中国大陆仅 Workspace）
+const AI_UNSUPPORTED = {
+  chatgpt: ['CN', 'HK', 'MO', 'RU', 'BY', 'IR', 'KP', 'SY', 'CU'],
+  claude: ['CN', 'HK', 'MO', 'RU', 'BY', 'IR', 'KP', 'SY', 'CU', 'VE', 'AF'],
+  gemini: ['CN', 'RU', 'BY', 'IR', 'KP', 'SY', 'CU', 'AF'],
+};
+
+// Gemini 页面给的是三位国家代码
+const ALPHA3_TO_ALPHA2 = {
+  HKG: 'HK', MAC: 'MO', TWN: 'TW', CHN: 'CN', JPN: 'JP', KOR: 'KR', SGP: 'SG', MYS: 'MY', THA: 'TH',
+  VNM: 'VN', PHL: 'PH', IDN: 'ID', IND: 'IN', AUS: 'AU', NZL: 'NZ', USA: 'US', CAN: 'CA', MEX: 'MX',
+  BRA: 'BR', ARG: 'AR', CHL: 'CL', GBR: 'GB', IRL: 'IE', DEU: 'DE', FRA: 'FR', NLD: 'NL', BEL: 'BE',
+  LUX: 'LU', CHE: 'CH', AUT: 'AT', ITA: 'IT', ESP: 'ES', PRT: 'PT', SWE: 'SE', NOR: 'NO', DNK: 'DK',
+  FIN: 'FI', POL: 'PL', CZE: 'CZ', ROU: 'RO', BGR: 'BG', HUN: 'HU', GRC: 'GR', UKR: 'UA', TUR: 'TR',
+  ISR: 'IL', ARE: 'AE', SAU: 'SA', QAT: 'QA', ZAF: 'ZA', EGY: 'EG', NGA: 'NG', KAZ: 'KZ', RUS: 'RU',
+  BLR: 'BY', IRN: 'IR', PRK: 'KP', SYR: 'SY', CUB: 'CU', VEN: 'VE', AFG: 'AF', PAK: 'PK', BGD: 'BD',
+};
 
 function elapsedSince(startedAt) {
   return Math.max(0, Date.now() - startedAt);
@@ -190,15 +221,6 @@ function regionFromTrace(body) {
   return firstRegion(body, [/^loc=([A-Z]{2})$/im]);
 }
 
-function regionFromServiceBody(body) {
-  return firstRegion(body, [
-    /"countryCode"\s*:\s*"([A-Z]{2})"/i,
-    /"country_code"\s*:\s*"([A-Z]{2})"/i,
-    /"clientCountry"\s*:\s*"([A-Z]{2})"/i,
-    /"region"\s*:\s*"([A-Z]{2})"/i,
-  ]);
-}
-
 function isHttpSuccess(status) {
   return status >= 200 && status < 400;
 }
@@ -305,86 +327,134 @@ async function checkDisney(ctx) {
   return result(state, region, Math.max(page.ms, entry.ms));
 }
 
+// ChatGPT：不再抓 chatgpt.com 首页（常被 Cloudflare 质询，显示「待验证」；
+// 而且香港等地首页照样能打开，会误判为可用）
 async function checkChatGPT(ctx) {
-  const [page, trace] = await Promise.all([
-    request(ctx, 'https://chatgpt.com/', { redirect: 'follow' }),
+  const [compliance, ios, trace] = await Promise.all([
+    request(ctx, 'https://api.openai.com/compliance/cookie_requirements', {
+      headers: {
+        Accept: '*/*',
+        'Accept-Language': 'en-US,en;q=0.9',
+        Authorization: 'Bearer null',
+        'Content-Type': 'application/json',
+        Origin: 'https://platform.openai.com',
+        Referer: 'https://platform.openai.com/',
+        'User-Agent': DESKTOP_UA,
+      },
+    }),
+    request(ctx, 'https://ios.chat.openai.com/', { redirect: 'follow' }),
     request(ctx, uncachedUrl('https://chatgpt.com/cdn-cgi/trace'), {
       headers: TRACE_HEADERS,
       redirect: 'follow',
     }),
   ]);
 
-  const region =
-    regionFromTrace(trace.body) ||
-    regionFromHeaders(page.headers) ||
-    regionFromServiceBody(page.body);
+  const region = regionFromTrace(trace.body);
+  const ms = Math.max(compliance.ms, ios.ms, trace.ms);
+  if (!compliance.ok && !ios.ok && !trace.ok) return result('error', region, ms);
 
-  const state = classifyPage(page, [
-    /OpenAI(?:'s)? services are not available in your country/i,
-    /unsupported country/i,
-    /not available in your region/i,
-  ]);
-
-  return result(state, region, Math.max(page.ms, trace.ms));
+  const iosBody = String(ios.body || '');
+  if (
+    /unsupported_country/i.test(compliance.body) ||
+    /unsupported_country_region_territory/i.test(iosBody) ||
+    AI_UNSUPPORTED.chatgpt.includes(region)
+  ) {
+    return result('blocked', region, ms);
+  }
+  // Cloudflare 封禁页：整个 IP 被拒
+  if (/blocked_why_headline/i.test(iosBody)) return result('blocked', region, ms);
+  // 机房 / VPN IP：网页版能用，App 被拒
+  if (/"cf_details"\s*:\s*"[^"]*\((?:1|2)\)/.test(iosBody) || /\bVPN\b/.test(iosBody)) {
+    return result('partial', region, ms);
+  }
+  if (!compliance.ok && !trace.ok) return result('error', region, ms);
+  return result('ok', region, ms);
 }
 
+// 手动跟随跳转（Egern 拿不到跟随后的最终网址），返回经过的每个 Location
+async function followRedirects(ctx, url, maxHops) {
+  const locations = [];
+  let current = url;
+  let last = null;
+  let ms = 0;
+
+  for (let hop = 0; hop <= maxHops; hop++) {
+    last = await request(ctx, current, { redirect: 'manual', readBody: false, timeout: 5000 });
+    ms += last.ms;
+    if (!last.ok || last.status < 300 || last.status >= 400) break;
+    const location = getHeader(last.headers, 'location');
+    if (!location) break;
+    locations.push(location);
+    try {
+      current = new URL(location, current).toString();
+    } catch {
+      break;
+    }
+  }
+
+  return { last, locations, ms };
+}
+
+// Claude：锁区时 claude.ai/ 会跳到 www.anthropic.com/app-unavailable-in-region
 async function checkClaude(ctx) {
-  const [page, trace] = await Promise.all([
-    request(ctx, 'https://claude.ai/login', { redirect: 'follow' }),
+  const [entry, trace] = await Promise.all([
+    followRedirects(ctx, 'https://claude.ai/', 2),
     request(ctx, uncachedUrl('https://claude.ai/cdn-cgi/trace'), {
       headers: TRACE_HEADERS,
       redirect: 'follow',
     }),
   ]);
 
-  const region =
-    regionFromTrace(trace.body) ||
-    regionFromHeaders(page.headers) ||
-    regionFromServiceBody(page.body);
+  const region = regionFromTrace(trace.body);
+  const ms = Math.max(entry.ms, trace.ms);
+  const last = entry.last;
 
-  let state = classifyPage(page, [
-    /Claude is not available in your country/i,
-    /unsupported country/i,
-    /not available in your region/i,
-  ]);
-
-  if (state === 'unknown' && regionFromTrace(trace.body)) {
-    state = 'ok';
+  if (entry.locations.some(location => /app-unavailable-in-region|unavailable-in-region/i.test(location))) {
+    return result('blocked', region, ms);
   }
-
-  return result(state, region, Math.max(page.ms, trace.ms));
+  if (AI_UNSUPPORTED.claude.includes(region)) return result('blocked', region, ms);
+  if (!last.ok) return result(trace.ok ? 'unknown' : 'error', region, ms);
+  if (last.status === 451) return result('blocked', region, ms);
+  // 403 一般是 Cloudflare 人机验证：浏览器里过一下就行，地区支持就算可用
+  if (last.status === 403) return result(region ? 'ok' : 'unknown', region, ms);
+  if (last.status >= 500) return result('error', region, ms);
+  return result('ok', region, ms);
 }
 
 async function checkGemini(ctx) {
-  const [page, entry] = await Promise.all([
-    request(ctx, 'https://gemini.google.com/app', {
-      redirect: 'follow',
-    }),
-    request(ctx, 'https://gemini.google.com/app', {
-      redirect: 'manual',
-      readBody: false,
-    }),
-  ]);
+  const page = await request(ctx, 'https://gemini.google.com/', {
+    headers: {
+      Accept: 'text/html,application/xhtml+xml,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.9',
+      'User-Agent': DESKTOP_UA,
+    },
+    redirect: 'follow',
+  });
 
-  const region =
-    regionFromLocation(entry.headers) ||
-    regionFromHeaders(page.headers) ||
-    firstRegion(page.body, [
-      /"countryCode"\s*:\s*"([A-Z]{2})"/i,
-      /"country"\s*:\s*"([A-Z]{2})"/i,
-    ]);
+  const body = String(page.body || '');
+  const alpha3 = (body.match(/,2,1,200,"([A-Z]{3})"/) || [])[1] || '';
+  const region = ALPHA3_TO_ALPHA2[alpha3] || regionFromHeaders(page.headers);
 
-  const state = classifyPage(page, [
-    /Gemini isn't currently supported in your country/i,
-    /Gemini is not available in your country/i,
-    /not available in your region/i,
-  ]);
-
-  return result(state, region, Math.max(page.ms, entry.ms));
+  if (!page.ok) return result('error', region, page.ms);
+  if (
+    hasAny(body, [
+      /Gemini isn['’]t currently supported in your country/i,
+      /Gemini is not (?:currently )?available in your country/i,
+    ]) ||
+    AI_UNSUPPORTED.gemini.includes(region)
+  ) {
+    return result('blocked', region, page.ms);
+  }
+  // 页面里的可用标记；Google 改版后可能失效，所以再按地区判断
+  if (body.includes('45631641,null,true')) return result('ok', region, page.ms);
+  if (isHttpSuccess(page.status)) return result(region ? 'ok' : 'unknown', region, page.ms);
+  if (page.status === 403 || page.status === 429) return result('unknown', region, page.ms);
+  return result('error', region, page.ms);
 }
 
 function stateLabel(info) {
-  if (info.state === 'blocked') return '锁定';
+  if (info.state === 'blocked') return info.region ? `锁定 ${info.region}` : '锁定';
+  if (info.state === 'partial') return info.region ? `${info.region} 仅网页` : '仅网页';
   if (info.state === 'unknown') return '待验证';
   if (info.state === 'error') return '失败';
   return info.region || '可用';
@@ -392,13 +462,13 @@ function stateLabel(info) {
 
 function stateColor(info) {
   if (info.state === 'ok') return COLORS.success;
-  if (info.state === 'unknown') return COLORS.warning;
+  if (info.state === 'unknown' || info.state === 'partial') return COLORS.warning;
   return COLORS.failure;
 }
 
 function latencyColor(info) {
   if (info.state === 'blocked' || info.state === 'error') return COLORS.failure;
-  if (info.ms >= 1200 || info.state === 'unknown') return COLORS.warning;
+  if (info.ms >= 1200 || info.state === 'unknown' || info.state === 'partial') return COLORS.warning;
   return COLORS.secondary;
 }
 

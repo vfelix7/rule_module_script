@@ -66,6 +66,14 @@ No environment variables are required. Each service request omits `policy` and
 `policyDescriptor`, so Egern applies the configured routing rules separately
 for YouTube, Netflix, Disney+, ChatGPT, Claude, and Gemini.
 
+The AI checks follow the current RegionRestrictionCheck methods and compare the
+egress region with each service's official supported list. ChatGPT uses the
+`api.openai.com` compliance endpoint and `ios.chat.openai.com` (`仅网页` means
+the IP is flagged as a data center or VPN, so the app is refused). Claude
+follows the `claude.ai` redirect to `app-unavailable-in-region`. Gemini reads
+the availability marker and country code from its page. A Hong Kong egress
+shows ChatGPT and Claude as locked, while Gemini is available.
+
 ### Codex Usage
 
 - Script: `egern/scripts/Codex_Usage_Widget.js`
