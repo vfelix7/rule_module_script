@@ -46,6 +46,14 @@ const PAGE_HEADERS = {
   'User-Agent': UA_DESKTOP,
 };
 
+// Google 系（YouTube、Gemini）统一用这套头。实际表现：YouTube 带着它能通；
+// Gemini 不带 Cookie 时 Google 直接回 400，Egern 再把 400 抛成「HTTP error!」
+const GOOGLE_HEADERS = {
+  ...PAGE_HEADERS,
+  'Accept-Language': 'en',
+  Cookie: 'CONSENT=YES+cb.20220301-11-p0.en+FX+700; PREF=hl=en',
+};
+
 const TIMEOUT = 8000;        // 普通请求
 const TIMEOUT_PAGE = 12000;  // YouTube / Netflix / Gemini 页面很大
 const TIMEOUT_HOP = 6000;    // 手动跟随跳转的每一跳、Disney+ 接口的每一步
@@ -238,11 +246,7 @@ function bodyHint(body) {
 
 async function checkYouTube(ctx, policy) {
   const hops = await follow(ctx, 'https://www.youtube.com/premium', {
-    headers: {
-      ...PAGE_HEADERS,
-      'Accept-Language': 'en',
-      Cookie: 'CONSENT=YES+cb.20220301-11-p0.en+FX+700; PREF=hl=en',
-    },
+    headers: GOOGLE_HEADERS,
     timeout: TIMEOUT_PAGE,
     policy,
   });
@@ -472,17 +476,16 @@ async function checkGemini(ctx, policy) {
   // 页面和定位接口同时问，哪路先给出结论用哪路
   const [hops, rpc] = await Promise.all([
     follow(ctx, 'https://gemini.google.com/app', {
-      headers: { Accept: 'text/html,*/*;q=0.8', 'Accept-Language': 'en-US,en;q=0.9', 'User-Agent': UA_DESKTOP },
+      headers: GOOGLE_HEADERS,
       timeout: TIMEOUT_PAGE,
       policy,
     }),
     http(ctx, GEMINI_RPC, {
       method: 'POST',
       headers: {
+        ...GOOGLE_HEADERS,
         Accept: '*/*',
-        'Accept-Language': 'en-US',
         'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-        'User-Agent': UA_DESKTOP,
       },
       body: GEMINI_RPC_BODY,
       policy,
