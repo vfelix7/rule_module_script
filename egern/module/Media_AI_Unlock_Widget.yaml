@@ -1,0 +1,38 @@
+name: "流媒体与 AI 解锁"
+description: "检测 YouTube Premium、Netflix、Disney+、ChatGPT、Claude、Gemini 在当前分流下是否解锁"
+author: "vfelix7"
+icon: "antenna.radiowaves.left.and.right"
+
+env_schema:
+  POLICY:
+    name: "检测策略"
+    description: "所有检测都走这个策略或策略组，用来测指定节点；留空按 Egern 分流规则"
+  STREAMING_POLICY:
+    name: "流媒体策略"
+    description: "只给 YouTube、Netflix、Disney+ 指定策略，优先于上一项"
+  AI_POLICY:
+    name: "AI 策略"
+    description: "只给 ChatGPT、Claude、Gemini 指定策略，优先于检测策略"
+  REFRESH_MINUTES:
+    name: "刷新间隔（分钟）"
+    description: "5–120。每次检测约下载 2–3 MB，间隔别设太短"
+    default_value: "30"
+
+scriptings:
+  - generic:
+      name: "media-ai-unlock-widget"
+      script_url: "https://raw.githubusercontent.com/vfelix7/rule_module_script/refs/heads/master/egern/scripts/Media_AI_Unlock_Widget.js"
+      update_interval: 300
+      timeout: 40
+
+widgets:
+  - name: "流媒体与 AI 解锁"
+    script_name: "media-ai-unlock-widget"
+
+# 不填任何 Env 也能用：每项检测按你的分流规则走。
+# 状态说明：
+#   地区代码（如 JP）  可用
+#   JP 自制剧         Netflix 只能看自制剧（IP 被识别为代理）
+#   JP 网页           ChatGPT 网页能用、App 被拒（机房 / VPN IP）
+#   锁定 HK           该地区不支持或被封
+#   超时 / 连接中断 等  请求失败，底部小字会写出断在哪个域名和原始报错

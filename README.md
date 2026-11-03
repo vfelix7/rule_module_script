@@ -74,6 +74,36 @@ follows the `claude.ai` redirect to `app-unavailable-in-region`. Gemini reads
 the availability marker and country code from its page. A Hong Kong egress
 shows ChatGPT and Claude as locked, while Gemini is available.
 
+### Media & AI Unlock (rewrite)
+
+A rewrite of the unlock widget with the same look. The original
+`Streaming_Unlock_Widget` is kept; both modules can be installed side by side.
+
+- Script: `egern/scripts/Media_AI_Unlock_Widget.js`
+- Module: `egern/module/Media_AI_Unlock_Widget.yaml`
+
+Module URL:
+
+```text
+https://raw.githubusercontent.com/vfelix7/rule_module_script/refs/heads/master/egern/module/Media_AI_Unlock_Widget.yaml
+```
+
+Optional env:
+
+```yaml
+POLICY: "Proxy"            # send every check through this policy; empty follows routing rules
+STREAMING_POLICY: "JP"     # only YouTube, Netflix, Disney+ (overrides POLICY)
+AI_POLICY: "US"            # only ChatGPT, Claude, Gemini (overrides POLICY)
+REFRESH_MINUTES: "30"      # 5-120; each run downloads about 2-3 MB
+```
+
+Checks follow the current RegionRestrictionCheck methods: YouTube Premium page,
+two non-original Netflix titles (`自制剧` means originals only), the Disney+
+device API with its `inSupportedLocation` flag, and the ChatGPT, Claude and
+Gemini checks described above. Failed checks show the reason in the badge and
+the failing host with the raw error at the bottom. Small, medium, large and
+lock-screen sizes are supported.
+
 ### Codex Usage
 
 - Script: `egern/scripts/Codex_Usage_Widget.js`
