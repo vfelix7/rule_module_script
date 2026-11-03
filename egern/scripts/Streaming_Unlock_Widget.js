@@ -99,22 +99,44 @@ async function request(ctx, url, options = {}) {
 
     return {
       ok: true,
+      url,
       status: Number(response.status),
       headers: response.headers,
       body,
       ms: elapsedSince(startedAt),
     };
   } catch (error) {
+    const message = String((error && error.message) || error || '').replace(/^\w*Error:\s*/, '');
     return {
       ok: false,
+      url,
       status: 0,
       headers: null,
       body: '',
       ms: elapsedSince(startedAt),
-      error: String(error),
-      timedOut: /timed?\s*out|timeout/i.test(String(error)),
+      error: message,
+      timedOut: /timed?\s*out|timeout/i.test(message),
     };
   }
+}
+
+function hostOf(url) {
+  const match = String(url || '').match(/^https?:\/\/([^/?#]+)/i);
+  return match ? match[1] : '';
+}
+
+// 把底层报错归成几类，徽标里放得下
+function errorLabel(message) {
+  const text = String(message || '');
+  if (/timed?\s*out|timeout/i.test(text)) return '超时';
+  if (/too (?:large|big)|exceed|size limit|max(?:imum)? size/i.test(text)) return '响应过大';
+  if (/redirect/i.test(text)) return '跳转过多';
+  if (/ssl|tls|certificate|secure connection|handshake/i.test(text)) return 'TLS 错误';
+  if (/refused/i.test(text)) return '连接被拒';
+  if (/reject|denied|blocked|prohibit/i.test(text)) return '被规则拒绝';
+  if (/reset|lost|closed|abort|broken pipe|eof|disconnect/i.test(text)) return '连接中断';
+  if (/dns|hostname|resolve|could not find|not found/i.test(text)) return 'DNS 失败';
+  return '网络错误';
 }
 
 function getHeader(headers, name) {
@@ -228,26 +250,39 @@ function isHttpSuccess(status) {
   return status >= 200 && status < 400;
 }
 
-// detail：失败 / 待验证时显示的具体原因，例如「超时」「网络错误」「HTTP 429」
-function result(state, region, ms, detail = '') {
+// detail：失败 / 待验证时徽标里显示的原因，例如「超时」「连接中断」「HTTP 429」
+// debug ：出错的域名 + 原始报错，显示在小组件底部，方便排查分流
+function result(state, region, ms, detail = '', debug = '') {
   return {
     state,
     region: normalizeRegion(region),
     ms: Number.isFinite(ms) ? ms : 0,
     detail,
+    debug,
   };
 }
 
 function failDetail(response) {
   if (!response) return '';
-  if (!response.ok) return response.timedOut ? '超时' : '网络错误';
+  if (!response.ok) return response.timedOut ? '超时' : errorLabel(response.error);
   return `HTTP ${response.status}`;
+}
+
+function failDebug(response) {
+  if (!response) return '';
+  const host = hostOf(response.url);
+  if (!response.ok) return `${host} ${String(response.error || '').slice(0, 60)}`.trim();
+  return `${host} HTTP ${response.status}`;
+}
+
+function failResult(state, region, ms, response) {
+  return result(state, region, ms, failDetail(response), failDebug(response));
 }
 
 // 流媒体：按页面判定，失败或待验证时带上原因
 function pageResult(state, region, ms, response) {
-  const detail = state === 'error' || state === 'unknown' ? failDetail(response) : '';
-  return result(state, region, ms, detail);
+  if (state === 'error' || state === 'unknown') return failResult(state, region, ms, response);
+  return result(state, region, ms);
 }
 
 function hasAny(text, patterns) {
@@ -274,10 +309,12 @@ function classifyPage(response, blockedPatterns) {
 }
 
 async function checkYouTube(ctx) {
-  const response = await request(ctx, 'https://www.youtube.com/premium', {
-    redirect: 'follow',
+  // 手动跟随跳转：出错时能看出是在哪个域名上断的
+  const hops = await followRedirects(ctx, 'https://www.youtube.com/premium', 4, {
+    readBody: true,
     timeout: GOOGLE_TIMEOUT,
   });
+  const response = { ...hops.last, ms: hops.ms };
 
   const region =
     regionFromHeaders(response.headers) ||
@@ -369,7 +406,7 @@ async function checkChatGPT(ctx) {
 
   const region = regionFromTrace(trace.body);
   const ms = Math.max(compliance.ms, ios.ms, trace.ms);
-  if (!compliance.ok && !ios.ok && !trace.ok) return result('error', region, ms, failDetail(compliance));
+  if (!compliance.ok && !ios.ok && !trace.ok) return failResult('error', region, ms, compliance);
 
   const iosBody = String(ios.body || '');
   if (
@@ -385,19 +422,24 @@ async function checkChatGPT(ctx) {
   if (/"cf_details"\s*:\s*"[^"]*\((?:1|2)\)/.test(iosBody) || /\bVPN\b/.test(iosBody)) {
     return result('partial', region, ms);
   }
-  if (!compliance.ok && !trace.ok) return result('error', region, ms, failDetail(compliance));
+  if (!compliance.ok && !trace.ok) return failResult('error', region, ms, compliance);
   return result('ok', region, ms);
 }
 
 // 手动跟随跳转（Egern 拿不到跟随后的最终网址），返回经过的每个 Location
-async function followRedirects(ctx, url, maxHops) {
+async function followRedirects(ctx, url, maxHops, options = {}) {
   const locations = [];
   let current = url;
   let last = null;
   let ms = 0;
 
   for (let hop = 0; hop <= maxHops; hop++) {
-    last = await request(ctx, current, { redirect: 'manual', readBody: false, timeout: 5000 });
+    last = await request(ctx, current, {
+      headers: options.headers,
+      redirect: 'manual',
+      readBody: options.readBody === true,
+      timeout: options.timeout || 5000,
+    });
     ms += last.ms;
     if (!last.ok || last.status < 300 || last.status >= 400) break;
     const location = getHeader(last.headers, 'location');
@@ -431,30 +473,31 @@ async function checkClaude(ctx) {
     return result('blocked', region, ms);
   }
   if (AI_UNSUPPORTED.claude.includes(region)) return result('blocked', region, ms);
-  if (!last.ok) return result(trace.ok ? 'unknown' : 'error', region, ms, failDetail(last));
+  if (!last.ok) return failResult(trace.ok ? 'unknown' : 'error', region, ms, last);
   if (last.status === 451) return result('blocked', region, ms);
   // 403 一般是 Cloudflare 人机验证：浏览器里过一下就行，地区支持就算可用
-  if (last.status === 403) return result(region ? 'ok' : 'unknown', region, ms, region ? '' : failDetail(last));
-  if (last.status >= 500) return result('error', region, ms, failDetail(last));
+  if (last.status === 403) return region ? result('ok', region, ms) : failResult('unknown', region, ms, last);
+  if (last.status >= 500) return failResult('error', region, ms, last);
   return result('ok', region, ms);
 }
 
 async function checkGemini(ctx) {
-  const page = await request(ctx, 'https://gemini.google.com/', {
+  const hops = await followRedirects(ctx, 'https://gemini.google.com/', 4, {
     headers: {
       Accept: 'text/html,application/xhtml+xml,*/*;q=0.8',
       'Accept-Language': 'en-US,en;q=0.9',
       'User-Agent': DESKTOP_UA,
     },
-    redirect: 'follow',
+    readBody: true,
     timeout: GOOGLE_TIMEOUT,
   });
+  const page = { ...hops.last, ms: hops.ms };
 
   const body = String(page.body || '');
   const alpha3 = (body.match(/,2,1,200,"([A-Z]{3})"/) || [])[1] || '';
   const region = ALPHA3_TO_ALPHA2[alpha3] || regionFromHeaders(page.headers);
 
-  if (!page.ok) return result('error', region, page.ms, failDetail(page));
+  if (!page.ok) return failResult('error', region, page.ms, page);
   if (
     hasAny(body, [
       /Gemini isn['’]t currently supported in your country/i,
@@ -467,8 +510,8 @@ async function checkGemini(ctx) {
   // 页面里的可用标记；Google 改版后可能失效，所以再按地区判断
   if (body.includes('45631641,null,true')) return result('ok', region, page.ms);
   if (isHttpSuccess(page.status)) return result(region ? 'ok' : 'unknown', region, page.ms);
-  if (page.status === 403 || page.status === 429) return result('unknown', region, page.ms, failDetail(page));
-  return result('error', region, page.ms, failDetail(page));
+  if (page.status === 403 || page.status === 429) return failResult('unknown', region, page.ms, page);
+  return failResult('error', region, page.ms, page);
 }
 
 function stateLabel(info) {
@@ -684,6 +727,21 @@ function header(passed, total, compact) {
   };
 }
 
+function debugFooter(items, compact) {
+  const lines = items
+    .filter(item => (item.info.state === 'error' || item.info.state === 'unknown') && item.info.debug)
+    .map(item => `${item.name}: ${item.info.debug}`);
+  if (!lines.length) return null;
+  return {
+    type: 'text',
+    text: lines.join('\n'),
+    font: { size: compact ? 7 : 8, weight: 'medium', family: 'Menlo' },
+    textColor: COLORS.secondary,
+    maxLines: compact ? 2 : 4,
+    minScale: 0.6,
+  };
+}
+
 function compactWidget(streaming, ai, passed, total, refreshAfter) {
   return {
     type: 'widget',
@@ -712,7 +770,8 @@ function compactWidget(streaming, ai, passed, total, refreshAfter) {
           },
         ],
       },
-    ],
+      debugFooter([...streaming, ...ai], true),
+    ].filter(Boolean),
   };
 }
 
@@ -743,7 +802,8 @@ function regularWidget(streaming, ai, passed, total, refreshAfter) {
       },
       group('流媒体解锁', streaming, false),
       group('AI 服务检测', ai, false),
-    ],
+      debugFooter([...streaming, ...ai], false),
+    ].filter(Boolean),
   };
 }
 
