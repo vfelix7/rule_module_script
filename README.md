@@ -100,9 +100,13 @@ REFRESH_MINUTES: "30"      # 5-120; each run downloads about 2-3 MB
 Checks follow the current RegionRestrictionCheck methods: YouTube Premium page,
 two non-original Netflix titles (`自制剧` means originals only), the Disney+
 device API with its `inSupportedLocation` flag, and the ChatGPT, Claude and
-Gemini checks described above. Failed checks show the reason in the badge and
-the failing host with the raw error at the bottom. Small, medium, large and
-lock-screen sizes are supported.
+Gemini checks described above. Gemini also asks its own location endpoint
+(`K4WWud`, the one RegionRestrictionCheck uses) when the page gives no answer.
+Egern throws 4xx responses as `HTTP error! status: …, body: …`; the script turns
+them back into responses, so a 403 body such as `unsupported_country` still
+counts. Failed checks show the reason in the badge and the failing host with
+the status or raw error at the bottom. Small, medium, large and lock-screen
+sizes are supported.
 
 ### Codex Usage
 

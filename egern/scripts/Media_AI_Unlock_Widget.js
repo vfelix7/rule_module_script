@@ -10,9 +10,10 @@
  *   Disney+  官方设备接口返回的 countryCode / inSupportedLocation，再看首页是否跳到 unavailable
  *   ChatGPT  api.openai.com 合规接口 + ios.chat.openai.com 拦截页（地区封锁 / 机房 IP 只能用网页）
  *   Claude   claude.ai 是否跳到 app-unavailable-in-region
- *   Gemini   页面可用标记和国家代码
+ *   Gemini   页面可用标记和国家代码；页面没结论时，问 Gemini 自己的定位接口（K4WWud）
  *
  * 分流：默认不指定策略，每个请求按 Egern 分流规则走，结果就是「现在用这台手机打开它会怎样」。
+ * 注意：Egern 遇到 4xx 会直接抛出「HTTP error! status: …, body: …」，脚本会把它还原成普通响应再判断。
  *
  * Env（都可选）：
  *   POLICY            所有检测都走这个策略 / 策略组，用来测指定节点
@@ -71,6 +72,21 @@ const ALPHA3 = {
   BLR: 'BY', IRN: 'IR', PRK: 'KP', SYR: 'SY', CUB: 'CU', VEN: 'VE', AFG: 'AF', PAK: 'PK', BGD: 'BD',
 };
 
+// Gemini 定位接口给的是英文地名（香港、澳门、台湾单独判断）
+const COUNTRY_NAMES = {
+  china: 'CN', 'mainland china': 'CN', japan: 'JP', 'south korea': 'KR', korea: 'KR', 'north korea': 'KP',
+  singapore: 'SG', malaysia: 'MY', thailand: 'TH', vietnam: 'VN', 'viet nam': 'VN', philippines: 'PH',
+  indonesia: 'ID', india: 'IN', australia: 'AU', 'new zealand': 'NZ', 'united states': 'US', usa: 'US', us: 'US',
+  canada: 'CA', mexico: 'MX', brazil: 'BR', argentina: 'AR', chile: 'CL', 'united kingdom': 'GB', uk: 'GB',
+  ireland: 'IE', germany: 'DE', france: 'FR', netherlands: 'NL', belgium: 'BE', luxembourg: 'LU',
+  switzerland: 'CH', austria: 'AT', italy: 'IT', spain: 'ES', portugal: 'PT', sweden: 'SE', norway: 'NO',
+  denmark: 'DK', finland: 'FI', poland: 'PL', czechia: 'CZ', 'czech republic': 'CZ', romania: 'RO',
+  bulgaria: 'BG', hungary: 'HU', greece: 'GR', ukraine: 'UA', turkey: 'TR', turkiye: 'TR', israel: 'IL',
+  'united arab emirates': 'AE', 'saudi arabia': 'SA', qatar: 'QA', 'south africa': 'ZA', egypt: 'EG',
+  nigeria: 'NG', kazakhstan: 'KZ', russia: 'RU', 'russian federation': 'RU', belarus: 'BY', iran: 'IR',
+  syria: 'SY', cuba: 'CU', venezuela: 'VE', afghanistan: 'AF', pakistan: 'PK', bangladesh: 'BD',
+};
+
 // Disney+ 网页版公开使用的客户端密钥（各类检测脚本通用）
 const DISNEY_KEY = 'ZGlzbmV5JmJyb3dzZXImMS4wLjA.Cu56AgSfBTDag5NiRA81oLHkDZfu5L3CKadnefEAY84';
 
@@ -107,6 +123,12 @@ async function http(ctx, url, opts = {}) {
     return { ok: true, url, status: Number(response.status), headers: response.headers, body: String(body || ''), ms: Date.now() - startedAt };
   } catch (error) {
     const message = String(error?.message || error || '').replace(/^\w*Error:\s*/, '');
+    // Egern 收到 4xx 时不返回响应，而是抛出「HTTP error! status: 400, body: …」。
+    // 这是服务器的正常回应（锁区信息常常就写在 403 的正文里），还原成响应再判断
+    const thrown = message.match(/HTTP error!?\s*status:?\s*(\d{3})\b(?:\s*,?\s*body:\s?([\s\S]*))?/i);
+    if (thrown) {
+      return { ok: true, url, status: Number(thrown[1]), headers: null, body: thrown[2] || '', ms: Date.now() - startedAt };
+    }
     return {
       ok: false, url, status: 0, headers: null, body: '', ms: Date.now() - startedAt,
       error: message, timedOut: /timed?\s*out|timeout/i.test(message),
@@ -201,7 +223,15 @@ function failed(state, region, ms, response) {
       debug: `${host} ${String(response.error || '').slice(0, 60)}`.trim(),
     });
   }
-  return result(state, region, ms, { detail: `HTTP ${response.status}`, debug: `${host} HTTP ${response.status}` });
+  return result(state, region, ms, { detail: `HTTP ${response.status}`, debug: `${host} HTTP ${response.status}${bodyHint(response.body)}` });
+}
+
+// 错误页的标题或很短的正文，看得出是谁回的（Google 自己的 400 页标题是「Error 400 (Bad Request)!!1」）
+function bodyHint(body) {
+  const raw = String(body || '');
+  const title = (raw.match(/<title[^>]*>([^<]{1,80})<\/title>/i) || [])[1];
+  const hint = (title || (raw.length <= 120 ? raw.replace(/<[^>]+>/g, ' ') : '')).replace(/\s+/g, ' ').trim().slice(0, 40);
+  return hint ? ` · ${hint}` : '';
 }
 
 // ───────────────────────────── 流媒体 ─────────────────────────────
@@ -393,22 +423,91 @@ async function checkClaude(ctx, policy) {
   return result('ok', region, ms);
 }
 
+// Gemini 网页显示「你的位置」用的接口；RegionRestrictionCheck 现在也靠它取 Gemini 看到的地区
+const GEMINI_RPC = 'https://gemini.google.com/_/BardChatUi/data/batchexecute';
+const GEMINI_RPC_BODY = `f.req=${encodeURIComponent('[[["K4WWud","[[0],[\\"en-US\\"]]",null,"generic"]]]')}`;
+
+// 返回形如 [["wrb.fr","K4WWud","[[\"Tokyo, Japan\",\"S…\"],…]",…]]，取出里面的地名
+function geminiPlace(body) {
+  const raw = String(body || '');
+  for (const line of raw.split('\n')) {
+    if (!line.includes('K4WWud')) continue;
+    const rows = parseJSON(line.trim());
+    const row = Array.isArray(rows) ? rows.find(item => Array.isArray(item) && item[1] === 'K4WWud') : null;
+    const place = row && typeof row[2] === 'string' ? placeIn(parseJSON(row[2])) : '';
+    if (place) return place;
+  }
+  return (raw.match(/\[\[\\*"([^"\\]{2,80})\\*",\\*"S/) || [])[1] || '';
+}
+
+function placeIn(node, depth = 0) {
+  if (!Array.isArray(node) || depth > 6) return '';
+  if (typeof node[0] === 'string' && typeof node[1] === 'string' && node[1].startsWith('S')) return node[0];
+  for (const child of node) {
+    const found = placeIn(child, depth + 1);
+    if (found) return found;
+  }
+  return '';
+}
+
+// 「Tokyo, Japan」→ JP；认不出的地名返回空
+function countryOf(place) {
+  let name = String(place || '');
+  try {
+    name = name.normalize('NFD');
+  } catch {}
+  const parts = name.toLowerCase().replace(/[̀-ͯ]/g, '').split(',')
+    .map(part => part.replace(/[^a-z]+/g, ' ').trim())
+    .filter(Boolean);
+  const whole = ` ${parts.join(' ')} `;
+  if (whole.includes(' hong kong ')) return 'HK';
+  if (/ maca[ou] /.test(whole)) return 'MO';
+  if (whole.includes(' taiwan ')) return 'TW';
+  for (let i = parts.length - 1; i >= 0; i--) if (COUNTRY_NAMES[parts[i]]) return COUNTRY_NAMES[parts[i]];
+  const hit = Object.keys(COUNTRY_NAMES).filter(key => whole.includes(` ${key} `)).sort((a, b) => b.length - a.length)[0];
+  return hit ? COUNTRY_NAMES[hit] : '';
+}
+
 async function checkGemini(ctx, policy) {
-  const hops = await follow(ctx, 'https://gemini.google.com/', { timeout: TIMEOUT_PAGE, policy });
+  // 页面和定位接口同时问，哪路先给出结论用哪路
+  const [hops, rpc] = await Promise.all([
+    follow(ctx, 'https://gemini.google.com/app', {
+      headers: { Accept: 'text/html,*/*;q=0.8', 'Accept-Language': 'en-US,en;q=0.9', 'User-Agent': UA_DESKTOP },
+      timeout: TIMEOUT_PAGE,
+      policy,
+    }),
+    http(ctx, GEMINI_RPC, {
+      method: 'POST',
+      headers: {
+        Accept: '*/*',
+        'Accept-Language': 'en-US',
+        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+        'User-Agent': UA_DESKTOP,
+      },
+      body: GEMINI_RPC_BODY,
+      policy,
+    }),
+  ]);
   const page = hops.last;
   const body = page.body;
-  const region = ALPHA3[(body.match(/,2,1,200,"([A-Z]{3})"/) || [])[1]] || '';
+  const place = rpc.ok && okStatus(rpc.status) ? geminiPlace(rpc.body) : '';
+  const pageRegion = ALPHA3[(body.match(/,2,1,200,"([A-Z]{3})"/) || [])[1]] || '';
+  const region = pageRegion || countryOf(place);
 
-  if (!page.ok) return failed('error', region, hops.ms, page);
-  if (
-    /Gemini isn['’]t currently supported in your country|Gemini is not (?:currently )?available in your country/i.test(body) ||
-    UNSUPPORTED.gemini.includes(region)
-  ) {
+  if (/Gemini isn['’]t currently supported in your country|Gemini is not (?:currently )?available in your country/i.test(body)) {
     return result('blocked', region, hops.ms);
   }
+  if (UNSUPPORTED.gemini.includes(region)) return result('blocked', region, pageRegion ? hops.ms : rpc.ms);
   if (body.includes('45631641,null,true')) return result('ok', region, hops.ms);
-  if (okStatus(page.status)) return result(region ? 'ok' : 'unknown', region, hops.ms);
-  return failed(page.status === 403 || page.status === 429 ? 'unknown' : 'error', region, hops.ms, page);
+  if (place) return result('ok', region, rpc.ms); // 定位接口给出了地区，且不在不支持名单里
+  if (page.ok && okStatus(page.status)) return result(region ? 'ok' : 'unknown', region, hops.ms);
+
+  // 两路都没结论：徽标写页面的原因，底部写两路各自的结果
+  const note = r => (r.ok ? `HTTP ${r.status}${bodyHint(r.body)}` : String(r.error || '无响应').slice(0, 40));
+  return result(page.ok && (page.status === 403 || page.status === 429) ? 'unknown' : 'error', region, Math.max(hops.ms, rpc.ms), {
+    detail: page.ok ? `HTTP ${page.status}` : page.timedOut ? '超时' : errorLabel(page.error),
+    debug: `${hostOf(page.url)} ${note(page)}；接口 ${note(rpc)}`,
+  });
 }
 
 // ───────────────────────────── 界面 ─────────────────────────────
