@@ -70,7 +70,7 @@ Optional env:
 POLICY: "Proxy"         # policy group or node to check; empty follows routing rules
 MARK_IP: "true"         # false shows the full IP
 REFRESH_MINUTES: "10"
-LABEL: "Tokyo"          # name shown next to the IP; defaults to the policy name
+LABEL: "Tokyo"          # tells widgets apart: next to the IP, bottom right on medium; defaults to the policy name
 ```
 
 The widget reads like a test strip: five bands from 极净 to 很差, the band the
@@ -79,6 +79,14 @@ position. The thresholds (20, 40, 60, 80) are the widget's own, since IPPure
 publishes none, and IPv6 addresses are not scored. It also shows native or
 broadcast IP, residential or data center, location, ASN, and the IP. Set
 `POLICY` to a landing node to check that node's IP.
+
+The medium widget has three rows: location and time on top; the IP with its
+network on the left and the score with the strip on the right in the middle;
+the IP type and the label at the bottom.
+
+In Egern, an element with `flex` fills both directions, even when it has a
+`height`, so a row that holds one grows taller and squeezes the spacers next to
+it to zero. Every row here that holds `flex` children has an explicit height.
 
 ### Media & AI Unlock
 

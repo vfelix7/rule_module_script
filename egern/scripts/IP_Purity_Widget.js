@@ -10,13 +10,17 @@
  * 分数浮在试纸上方、跟着分数左右移动，下方的小三角指着确切位置。
  * 分档是小组件自己定的（IPPure 没有公布）：0–19 极净，20–39 纯净，40–59 一般，60–79 较差，80 以上很差。
  *
+ * 布局注意（真机上确认过）：Egern 里带 flex 的元素横竖两个方向都会撑满，写了 height 也只是可见部分的高度；
+ * 装着它的 row 会跟着被纵向拉高，同一列里的 spacer 被压成 0。所以凡是装着 flex 子元素的 row 都写明 height，
+ * 只有中号中间那一行是故意让它撑满页眉和页脚之间的空间。
+ *
  * 模块：egern/module/IP_Purity_Widget.yaml
  *
  * Env（都可选）：
  *   POLICY           检测哪个策略组或节点的出口 IP；留空按 Egern 分流规则
  *   MARK_IP          IP 打码，默认 true
  *   REFRESH_MINUTES  刷新间隔（分钟），默认 10
- *   LABEL            名称，显示在 IP 右边，用来区分多个小组件；不填时显示检测策略名
+ *   LABEL            名称，用来区分多个小组件（小号、大号在 IP 右边，中号在右下角）；不填时显示检测策略名
  */
 
 const API_URL = 'https://my.ippure.com/v1/info';
@@ -258,6 +262,7 @@ function spacer(length) {
   return length === undefined ? { type: 'spacer' } : { type: 'spacer', length };
 }
 
+// 只占横向比例的空白块；装它的 row 必须写 height，否则会被它纵向撑开
 function grow(flex) {
   return { type: 'stack', flex: Math.max(flex, 0.01), children: [] };
 }
@@ -272,22 +277,24 @@ function center(child) {
   return row([spacer(), child, spacer()]);
 }
 
-// 让一个元素在整行里按分数左右滑动：0 分贴左，100 分贴右
-function slide(child, score) {
+// 让一个元素在整行里按分数左右滑动：0 分贴左，100 分贴右。height 是这一行的高度，必须写明
+function slide(child, score, height) {
   if (score === null) return row([child, spacer()]);
-  return row([grow(score), child, grow(100 - score)], { alignItems: 'end' });
+  return row([grow(score), child, grow(100 - score)], { height });
 }
 
 // ───────────────────────────── 试纸 ─────────────────────────────
 
+// 读数行的高度取数字字号：DIN Condensed 的数字只占行高中间一段，行框上下多出的部分不会被裁到
 function reading(m, numberSize, nameSize) {
   if (m.score === null) {
     return T(m.isV6 ? 'IPv6 不评分' : '暂无评分', nameSize + 2, C.soft, 'semibold');
   }
+  // 档位名和数字居中对齐；按底边对齐时，数字下方的留白会让档位名看起来往下掉
   return row([
     T(String(Math.round(m.score)), numberSize, C.ink, 'bold', { family: READOUT }),
     T(m.band.name, nameSize, solid(m.band), 'semibold'),
-  ], { gap: Math.max(3, Math.round(numberSize / 9)), alignItems: 'end' });
+  ], { gap: Math.max(3, Math.round(numberSize / 9)) });
 }
 
 function strip(m, height) {
@@ -302,12 +309,13 @@ function strip(m, height) {
       backgroundColor: i === active ? solid(band) : faded(band),
       children: [],
     };
-  }), { gap: 3 });
+  }), { gap: 3, height: height + 4 });
 }
 
 function pointer(m, size) {
   if (m.score === null) return null;
-  return slide({ type: 'image', src: 'sf-symbol:triangle.fill', width: size, height: Math.round(size * 0.8), color: C.ink }, m.score);
+  const height = Math.round(size * 0.8);
+  return slide({ type: 'image', src: 'sf-symbol:triangle.fill', width: size, height, color: C.ink }, m.score, height);
 }
 
 function legend(m, size = 10) {
@@ -316,7 +324,7 @@ function legend(m, size = 10) {
     spacer(),
     T(band.name, size, i === active ? solid(band) : C.faint, i === active ? 'semibold' : 'regular'),
     spacer(),
-  ], { flex: 1 })), { gap: 3 });
+  ], { flex: 1 })), { gap: 3, height: size + 6 });
 }
 
 // ───────────────────────────── 布局 ─────────────────────────────
@@ -331,17 +339,17 @@ function placeRow(m, size, withCity) {
   ], { gap: 5 });
 }
 
-// IP 是这台出口的身份，用深色大字，不再当成次要信息
-function ipText(m, size) {
-  return T(m.shownIP, size, C.ink, 'bold', { family: FIGURES, minScale: 0.6 });
+// IP 是这台出口的身份，用深色大字，不再当成次要信息；没打码的 IPv6 很长，允许缩得更小
+function ipText(m, size, extra = {}) {
+  return T(m.shownIP, size, C.ink, 'bold', { family: FIGURES, minScale: m.shownIP.length > 18 ? 0.4 : 0.6, ...extra });
 }
 
+// IP 占满左边剩下的宽度（太长时才能缩小），名称贴右；行里有 flex，所以写明行高
 function ipRow(m, size, nameSize) {
   return row([
-    ipText(m, size),
-    spacer(),
+    ipText(m, size, { flex: 1 }),
     m.name ? T(m.name, nameSize, C.faint, 'medium', { minScale: 0.7 }) : null,
-  ], { gap: 6 });
+  ], { gap: 6, height: Math.ceil(size * 1.3) });
 }
 
 function traitView(t, size) {
@@ -351,13 +359,10 @@ function traitView(t, size) {
   ], { gap: 3 });
 }
 
-// ASN 加完整的运营商名称，长名字最多折成两行
-function networkBlock(m, size) {
-  if (!m.asn && !m.org) return null;
-  return row([
-    m.asn ? T(m.asn, size, C.soft, 'bold', { family: FIGURES }) : null,
-    m.org ? T(m.org, size, C.soft, 'regular', { maxLines: 2, minScale: 0.85, flex: 1 }) : null,
-  ], { gap: 4, alignItems: 'start' });
+// ASN 加完整的运营商名称，合成一段文字直接放在列里，按列宽折行（最多两行），不用 flex
+function networkText(m, size) {
+  const text = [m.asn, m.org].filter(Boolean).join(' · ');
+  return text ? T(text, size, C.soft, 'medium', { maxLines: 2, minScale: 0.85 }) : null;
 }
 
 function root(children, padding, m) {
@@ -375,11 +380,11 @@ function root(children, padding, m) {
 function smallWidget(m) {
   return root([
     placeRow(m, 12, false),
-    spacer(2),
-    ipRow(m, 13, 9),
-    spacer(),
-    slide(reading(m, 28, 11), m.score),
     spacer(3),
+    ipRow(m, 14, 9),
+    spacer(),
+    slide(reading(m, 30, 11), m.score, 30),
+    spacer(2),
     strip(m, 5),
     m.score === null ? null : spacer(2),
     pointer(m, 7),
@@ -388,44 +393,45 @@ function smallWidget(m) {
   ], [12, 13, 11, 13], m);
 }
 
-// 中号分左右两栏：左边是这台出口是谁（地区、IP、运营商、类型），右边是试纸
+// 中号是三行：顶行地区和时间；中间一行左边 IP 和运营商、右边分数和试纸，两边各自上下居中；底行类型和名称
 function mediumWidget(m) {
   const identity = col([
-    row([
-      T(m.flag, 13),
-      T(m.country, 13, C.ink, 'semibold'),
-      m.city ? T(m.city, 13, C.soft, 'regular', { minScale: 0.6 }) : null,
-    ], { gap: 5 }),
-    spacer(5),
-    ipText(m, 18),
-    spacer(5),
-    networkBlock(m, 10),
     spacer(),
-    row(traits(m).map(t => traitView(t, 10)), { gap: 10 }),
-  ], { flex: 5 });
-
-  const verdict = col([
-    row([
-      m.name ? T(m.name, 10, C.faint, 'medium', { minScale: 0.7 }) : null,
-      spacer(),
-      T(m.time, 10, C.faint, 'medium'),
-    ], { gap: 6 }),
+    ipText(m, 24),
+    spacer(4),
+    networkText(m, 11),
     spacer(),
-    slide(reading(m, 30, 11), m.score),
-    spacer(3),
-    strip(m, 6),
-    m.score === null ? null : spacer(2),
-    pointer(m, 7),
   ], { flex: 4 });
 
-  return root([row([identity, verdict], { gap: 16, alignItems: 'start', flex: 1 })], [13, 15, 12, 15], m);
+  const verdict = col([
+    spacer(),
+    slide(reading(m, 34, 12), m.score, 34),
+    spacer(2),
+    strip(m, 7),
+    m.score === null ? null : spacer(2),
+    pointer(m, 8),
+    spacer(),
+  ], { flex: 3 });
+
+  return root([
+    placeRow(m, 13, true),
+    spacer(4),
+    // 两栏都带 flex，这一行会撑满页眉和页脚之间的高度（根列里没有可伸缩的 spacer 跟它抢）
+    row([identity, verdict], { gap: 14 }),
+    spacer(4),
+    row([
+      ...traits(m).map(t => traitView(t, 10)),
+      spacer(),
+      m.name ? T(m.name, 10, C.faint, 'medium', { minScale: 0.7 }) : null,
+    ], { gap: 10 }),
+  ], [14, 16, 13, 16], m);
 }
 
 function detail(label, value, good) {
   return row([
-    { type: 'stack', direction: 'row', width: 36, children: [T(label, 12, C.faint, 'medium')] },
+    { type: 'stack', direction: 'row', width: 36, children: [T(label, 12, C.faint, 'medium'), spacer()] },
     T(value, 13, good ? C.good : C.ink, 'medium', { minScale: 0.7, flex: 1 }),
-  ], { gap: 8 });
+  ], { gap: 8, height: 18 });
 }
 
 function largeWidget(m) {
@@ -435,14 +441,14 @@ function largeWidget(m) {
   return root([
     placeRow(m, 16, true),
     spacer(4),
-    ipRow(m, 20, 12),
+    ipRow(m, 22, 12),
     spacer(),
-    slide(reading(m, 56, 16), m.score),
-    spacer(6),
+    slide(reading(m, 56, 16), m.score, 56),
+    spacer(3),
     strip(m, 11),
     m.score === null ? null : spacer(3),
     pointer(m, 11),
-    spacer(5),
+    spacer(6),
     legend(m),
     spacer(),
     col([
@@ -451,7 +457,7 @@ function largeWidget(m) {
       detail('网络', [m.asn, m.org].filter(Boolean).join(' ') || '未知'),
       m.timezone ? detail('时区', m.timezone) : null,
       detail('检测', m.policy ? `策略「${m.policy}」` : '跟随分流规则'),
-    ], { gap: 7 }),
+    ], { gap: 6 }),
   ], [16, 16, 15, 16], m);
 }
 
@@ -504,7 +510,7 @@ function rectangularWidget(m) {
       row([
         T(m.score === null ? '—' : String(Math.round(m.score)), 17, null, 'bold', { family: READOUT }),
         T(m.band ? m.band.name : m.isV6 ? 'IPv6 不评分' : '暂无评分', 12, null, 'semibold'),
-      ], { gap: 4, alignItems: 'end' }),
+      ], { gap: 4 }),
       T(kinds || m.shownIP, 12, null, 'regular', { minScale: 0.6 }),
     ],
   };

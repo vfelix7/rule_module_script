@@ -19,7 +19,7 @@ env_schema:
     default_value: "10"
   LABEL:
     name: "名称"
-    description: "显示在 IP 右边，用来区分多个小组件；不填时显示检测策略名"
+    description: "用来区分多个小组件（小号、大号显示在 IP 右边，中号在右下角）；不填时显示检测策略名"
 
 scriptings:
   - generic:
