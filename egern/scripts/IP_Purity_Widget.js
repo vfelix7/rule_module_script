@@ -310,11 +310,11 @@ function pointer(m, size) {
   return slide({ type: 'image', src: 'sf-symbol:triangle.fill', width: size, height: Math.round(size * 0.8), color: C.ink }, m.score);
 }
 
-function legend(m) {
+function legend(m, size = 10) {
   const active = m.band ? BANDS.indexOf(m.band) : -1;
   return row(BANDS.map((band, i) => row([
     spacer(),
-    T(band.name, 10, i === active ? solid(band) : C.faint, i === active ? 'semibold' : 'regular'),
+    T(band.name, size, i === active ? solid(band) : C.faint, i === active ? 'semibold' : 'regular'),
     spacer(),
   ], { flex: 1 })), { gap: 3 });
 }
@@ -331,11 +331,16 @@ function placeRow(m, size, withCity) {
   ], { gap: 5 });
 }
 
-function ipRow(m, size) {
+// IP 是这台出口的身份，用深色大字，不再当成次要信息
+function ipText(m, size) {
+  return T(m.shownIP, size, C.ink, 'bold', { family: FIGURES, minScale: 0.6 });
+}
+
+function ipRow(m, size, nameSize) {
   return row([
-    T(m.shownIP, size, C.soft, 'bold', { family: FIGURES, minScale: 0.6 }),
+    ipText(m, size),
     spacer(),
-    m.name ? T(m.name, size - 1, C.faint, 'medium', { minScale: 0.7 }) : null,
+    m.name ? T(m.name, nameSize, C.faint, 'medium', { minScale: 0.7 }) : null,
   ], { gap: 6 });
 }
 
@@ -346,13 +351,13 @@ function traitView(t, size) {
   ], { gap: 3 });
 }
 
-function networkView(m, size) {
-  const org = shorten(m.org, 18);
-  if (!m.asn && !org) return null;
+// ASN 加完整的运营商名称，长名字最多折成两行
+function networkBlock(m, size) {
+  if (!m.asn && !m.org) return null;
   return row([
-    m.asn ? T(m.asn, size, C.faint, 'bold', { family: FIGURES }) : null,
-    org ? T(org, size, C.faint, 'regular', { minScale: 0.7 }) : null,
-  ], { gap: 4 });
+    m.asn ? T(m.asn, size, C.soft, 'bold', { family: FIGURES }) : null,
+    m.org ? T(m.org, size, C.soft, 'regular', { maxLines: 2, minScale: 0.85, flex: 1 }) : null,
+  ], { gap: 4, alignItems: 'start' });
 }
 
 function root(children, padding, m) {
@@ -370,10 +375,10 @@ function root(children, padding, m) {
 function smallWidget(m) {
   return root([
     placeRow(m, 12, false),
-    spacer(1),
-    ipRow(m, 10),
+    spacer(2),
+    ipRow(m, 13, 9),
     spacer(),
-    slide(reading(m, 30, 11), m.score),
+    slide(reading(m, 28, 11), m.score),
     spacer(3),
     strip(m, 5),
     m.score === null ? null : spacer(2),
@@ -383,20 +388,37 @@ function smallWidget(m) {
   ], [12, 13, 11, 13], m);
 }
 
+// 中号分左右两栏：左边是这台出口是谁（地区、IP、运营商、类型），右边是试纸
 function mediumWidget(m) {
-  return root([
-    placeRow(m, 13, true),
-    spacer(2),
-    ipRow(m, 11),
+  const identity = col([
+    row([
+      T(m.flag, 13),
+      T(m.country, 13, C.ink, 'semibold'),
+      m.city ? T(m.city, 13, C.soft, 'regular', { minScale: 0.6 }) : null,
+    ], { gap: 5 }),
+    spacer(5),
+    ipText(m, 18),
+    spacer(5),
+    networkBlock(m, 10),
     spacer(),
-    slide(reading(m, 34, 12), m.score),
-    spacer(4),
+    row(traits(m).map(t => traitView(t, 10)), { gap: 10 }),
+  ], { flex: 5 });
+
+  const verdict = col([
+    row([
+      m.name ? T(m.name, 10, C.faint, 'medium', { minScale: 0.7 }) : null,
+      spacer(),
+      T(m.time, 10, C.faint, 'medium'),
+    ], { gap: 6 }),
+    spacer(),
+    slide(reading(m, 30, 11), m.score),
+    spacer(3),
     strip(m, 6),
     m.score === null ? null : spacer(2),
-    pointer(m, 8),
-    spacer(),
-    row([...traits(m).map(t => traitView(t, 10)), spacer(), networkView(m, 10)], { gap: 10 }),
-  ], [13, 15, 12, 15], m);
+    pointer(m, 7),
+  ], { flex: 4 });
+
+  return root([row([identity, verdict], { gap: 16, alignItems: 'start', flex: 1 })], [13, 15, 12, 15], m);
 }
 
 function detail(label, value, good) {
@@ -412,10 +434,10 @@ function largeWidget(m) {
   const kind = kinds.find(t => t.short === '住宅' || t.short === '机房');
   return root([
     placeRow(m, 16, true),
-    spacer(3),
-    ipRow(m, 13),
+    spacer(4),
+    ipRow(m, 20, 12),
     spacer(),
-    slide(reading(m, 60, 16), m.score),
+    slide(reading(m, 56, 16), m.score),
     spacer(6),
     strip(m, 11),
     m.score === null ? null : spacer(3),
