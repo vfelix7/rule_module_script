@@ -51,33 +51,7 @@ REFRESH_MINUTES: "10"     # 5-60
 The widget checks egress isolation (proxy vs direct), DNS leaks, IPv6
 routing, the TLS version, and captive portals.
 
-### Streaming and AI Unlock
-
-- Script: `egern/scripts/Streaming_Unlock_Widget.js`
-- Config snippet: `egern/module/Streaming_Unlock_Widget.yaml`
-
-Module URL:
-
-```text
-https://raw.githubusercontent.com/vfelix7/rule_module_script/refs/heads/master/egern/module/Streaming_Unlock_Widget.yaml
-```
-
-No environment variables are required. Each service request omits `policy` and
-`policyDescriptor`, so Egern applies the configured routing rules separately
-for YouTube, Netflix, Disney+, ChatGPT, Claude, and Gemini.
-
-The AI checks follow the current RegionRestrictionCheck methods and compare the
-egress region with each service's official supported list. ChatGPT uses the
-`api.openai.com` compliance endpoint and `ios.chat.openai.com` (`仅网页` means
-the IP is flagged as a data center or VPN, so the app is refused). Claude
-follows the `claude.ai` redirect to `app-unavailable-in-region`. Gemini reads
-the availability marker and country code from its page. A Hong Kong egress
-shows ChatGPT and Claude as locked, while Gemini is available.
-
-### Media & AI Unlock (rewrite)
-
-A rewrite of the unlock widget with the same look. The original
-`Streaming_Unlock_Widget` is kept; both modules can be installed side by side.
+### Media & AI Unlock
 
 - Script: `egern/scripts/Media_AI_Unlock_Widget.js`
 - Module: `egern/module/Media_AI_Unlock_Widget.yaml`
@@ -97,16 +71,28 @@ AI_POLICY: "US"            # only ChatGPT, Claude, Gemini (overrides POLICY)
 REFRESH_MINUTES: "30"      # 5-120; each run downloads about 2-3 MB
 ```
 
-Checks follow the current RegionRestrictionCheck methods: YouTube Premium page,
-two non-original Netflix titles (`自制剧` means originals only), the Disney+
-device API with its `inSupportedLocation` flag, and the ChatGPT, Claude and
-Gemini checks described above. Gemini also asks its own location endpoint
-(`K4WWud`, the one RegionRestrictionCheck uses) when the page gives no answer.
+No env is required. Without a policy, each request follows Egern's routing
+rules, so every service is checked through the node it would really use.
+
+Checks follow the current RegionRestrictionCheck methods and compare the egress
+region with each service's official supported list:
+
+- YouTube: the Premium page's region and purchase entry.
+- Netflix: two non-original titles; `自制剧` means originals only.
+- Disney+: the device API's `countryCode` and `inSupportedLocation`.
+- ChatGPT: the `api.openai.com` compliance endpoint and `ios.chat.openai.com`;
+  `网页` means the IP is flagged as a data center or VPN, so the app is refused.
+- Claude: the `claude.ai` redirect to `app-unavailable-in-region`.
+- Gemini: the page's availability marker and country code, plus its own
+  location endpoint (`K4WWud`). A Hong Kong egress shows ChatGPT and Claude as
+  locked, while Gemini is available.
+
 Egern throws 4xx responses as `HTTP error! status: …, body: …`; the script turns
 them back into responses, so a 403 body such as `unsupported_country` still
 counts. Failed checks show the reason in the badge and the failing host with
-the status or raw error at the bottom. Small, medium, large and lock-screen
-sizes are supported.
+the status or raw error at the bottom. The `ms` value is how long the whole
+check took, not node latency. Small, medium, large and lock-screen sizes are
+supported.
 
 ### Codex Usage
 
