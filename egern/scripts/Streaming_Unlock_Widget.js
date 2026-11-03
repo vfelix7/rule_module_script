@@ -51,6 +51,8 @@ const DESKTOP_UA =
   '(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
 const REQUEST_TIMEOUT = 7000;
+// YouTube / Gemini 页面很大（几百 KB 到 1 MB 以上），走中转链路时 7 秒常常不够
+const GOOGLE_TIMEOUT = 12000;
 
 // 官方「支持地区」名单里没有的常见出口地区，只列确定不支持的；以官网为准：
 //   ChatGPT https://help.openai.com/en/articles/7947663
@@ -110,6 +112,7 @@ async function request(ctx, url, options = {}) {
       body: '',
       ms: elapsedSince(startedAt),
       error: String(error),
+      timedOut: /timed?\s*out|timeout/i.test(String(error)),
     };
   }
 }
@@ -225,12 +228,26 @@ function isHttpSuccess(status) {
   return status >= 200 && status < 400;
 }
 
-function result(state, region, ms) {
+// detail：失败 / 待验证时显示的具体原因，例如「超时」「网络错误」「HTTP 429」
+function result(state, region, ms, detail = '') {
   return {
     state,
     region: normalizeRegion(region),
     ms: Number.isFinite(ms) ? ms : 0,
+    detail,
   };
+}
+
+function failDetail(response) {
+  if (!response) return '';
+  if (!response.ok) return response.timedOut ? '超时' : '网络错误';
+  return `HTTP ${response.status}`;
+}
+
+// 流媒体：按页面判定，失败或待验证时带上原因
+function pageResult(state, region, ms, response) {
+  const detail = state === 'error' || state === 'unknown' ? failDetail(response) : '';
+  return result(state, region, ms, detail);
 }
 
 function hasAny(text, patterns) {
@@ -259,6 +276,7 @@ function classifyPage(response, blockedPatterns) {
 async function checkYouTube(ctx) {
   const response = await request(ctx, 'https://www.youtube.com/premium', {
     redirect: 'follow',
+    timeout: GOOGLE_TIMEOUT,
   });
 
   const region =
@@ -274,7 +292,7 @@ async function checkYouTube(ctx) {
     /Premium is not available in your country/i,
   ]);
 
-  return result(state, region, response.ms);
+  return pageResult(state, region, response.ms, response);
 }
 
 async function checkNetflix(ctx) {
@@ -299,7 +317,7 @@ async function checkNetflix(ctx) {
     /This title is not available in your current region/i,
   ]);
 
-  return result(state, region, Math.max(page.ms, entry.ms));
+  return pageResult(state, region, Math.max(page.ms, entry.ms), page);
 }
 
 async function checkDisney(ctx) {
@@ -324,7 +342,7 @@ async function checkDisney(ctx) {
     /not available in your country/i,
   ]);
 
-  return result(state, region, Math.max(page.ms, entry.ms));
+  return pageResult(state, region, Math.max(page.ms, entry.ms), page);
 }
 
 // ChatGPT：不再抓 chatgpt.com 首页（常被 Cloudflare 质询，显示「待验证」；
@@ -351,7 +369,7 @@ async function checkChatGPT(ctx) {
 
   const region = regionFromTrace(trace.body);
   const ms = Math.max(compliance.ms, ios.ms, trace.ms);
-  if (!compliance.ok && !ios.ok && !trace.ok) return result('error', region, ms);
+  if (!compliance.ok && !ios.ok && !trace.ok) return result('error', region, ms, failDetail(compliance));
 
   const iosBody = String(ios.body || '');
   if (
@@ -367,7 +385,7 @@ async function checkChatGPT(ctx) {
   if (/"cf_details"\s*:\s*"[^"]*\((?:1|2)\)/.test(iosBody) || /\bVPN\b/.test(iosBody)) {
     return result('partial', region, ms);
   }
-  if (!compliance.ok && !trace.ok) return result('error', region, ms);
+  if (!compliance.ok && !trace.ok) return result('error', region, ms, failDetail(compliance));
   return result('ok', region, ms);
 }
 
@@ -413,11 +431,11 @@ async function checkClaude(ctx) {
     return result('blocked', region, ms);
   }
   if (AI_UNSUPPORTED.claude.includes(region)) return result('blocked', region, ms);
-  if (!last.ok) return result(trace.ok ? 'unknown' : 'error', region, ms);
+  if (!last.ok) return result(trace.ok ? 'unknown' : 'error', region, ms, failDetail(last));
   if (last.status === 451) return result('blocked', region, ms);
   // 403 一般是 Cloudflare 人机验证：浏览器里过一下就行，地区支持就算可用
-  if (last.status === 403) return result(region ? 'ok' : 'unknown', region, ms);
-  if (last.status >= 500) return result('error', region, ms);
+  if (last.status === 403) return result(region ? 'ok' : 'unknown', region, ms, region ? '' : failDetail(last));
+  if (last.status >= 500) return result('error', region, ms, failDetail(last));
   return result('ok', region, ms);
 }
 
@@ -429,13 +447,14 @@ async function checkGemini(ctx) {
       'User-Agent': DESKTOP_UA,
     },
     redirect: 'follow',
+    timeout: GOOGLE_TIMEOUT,
   });
 
   const body = String(page.body || '');
   const alpha3 = (body.match(/,2,1,200,"([A-Z]{3})"/) || [])[1] || '';
   const region = ALPHA3_TO_ALPHA2[alpha3] || regionFromHeaders(page.headers);
 
-  if (!page.ok) return result('error', region, page.ms);
+  if (!page.ok) return result('error', region, page.ms, failDetail(page));
   if (
     hasAny(body, [
       /Gemini isn['’]t currently supported in your country/i,
@@ -448,15 +467,15 @@ async function checkGemini(ctx) {
   // 页面里的可用标记；Google 改版后可能失效，所以再按地区判断
   if (body.includes('45631641,null,true')) return result('ok', region, page.ms);
   if (isHttpSuccess(page.status)) return result(region ? 'ok' : 'unknown', region, page.ms);
-  if (page.status === 403 || page.status === 429) return result('unknown', region, page.ms);
-  return result('error', region, page.ms);
+  if (page.status === 403 || page.status === 429) return result('unknown', region, page.ms, failDetail(page));
+  return result('error', region, page.ms, failDetail(page));
 }
 
 function stateLabel(info) {
   if (info.state === 'blocked') return info.region ? `锁定 ${info.region}` : '锁定';
   if (info.state === 'partial') return info.region ? `${info.region} 仅网页` : '仅网页';
-  if (info.state === 'unknown') return '待验证';
-  if (info.state === 'error') return '失败';
+  if (info.state === 'unknown') return info.detail || '待验证';
+  if (info.state === 'error') return info.detail || '失败';
   return info.region || '可用';
 }
 
