@@ -12,7 +12,8 @@
  *
  * 布局注意（真机上确认过）：Egern 里带 flex 的元素横竖两个方向都会撑满，写了 height 也只是可见部分的高度；
  * 装着它的 row 会跟着被纵向拉高，同一列里的 spacer 被压成 0。所以凡是装着 flex 子元素的 row 都写明 height。
- * 另外，带 flex 的文字在自己那一格里靠左；带 flex 的 stack 如果自己不铺满，会被摆在那一格的中间。
+ * 另外，带 flex 的文字在自己那一格里靠左；带 flex 的 stack 如果自己不铺满，会被摆在那一格的中间；
+ * 固定长度的 spacer 在交叉方向上会撑满（col 里的 spacer(5) 会让整列横向铺满）。
  *
  * 模块：egern/module/IP_Purity_Widget.yaml
  *
@@ -349,12 +350,13 @@ function scaleHeight(m, s) {
   return s.bar + 4 + s.space + (m.band ? Math.round(s.pointer * 0.8) + s.space : 0) + s.legend;
 }
 
-// 读数左右居中；shift 是要往下挪的点数：在读数上面垫一段空白（内容整体居中，所以垫 2 倍）。
+// 读数左右居中；shift 是要往下挪的点数：给读数加上边距（内容整体居中，所以边距取 2 倍）。
+// 不能用固定长度的 spacer 垫：Egern 里它会在横向撑满，带着整列铺满一格，读数就被挤到左边了。
 // 没有分数时显示的是中文提示，不用挪
 function readingBlock(m, s, shift, height) {
   const body = reading(m, s.number, s.name);
   const pad = m.score === null ? 0 : Math.round(shift * 2);
-  const moved = pad > 0 ? col([spacer(pad), body]) : body;
+  const moved = pad > 0 ? { ...body, padding: [pad, 0, 0, 0] } : body;
   return { type: 'stack', direction: 'row', children: [spacer(), moved, spacer()], ...(height ? { height } : {}) };
 }
 
