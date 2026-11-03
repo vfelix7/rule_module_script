@@ -72,3 +72,44 @@ REFRESH_MINUTES: "15"
 The widget shows the remaining 5-hour and weekly Codex usage percentages,
 their reset times, and the account plan. Credentials are read only from the
 Egern module environment and are not stored in the repository.
+
+### CF Server Monitor
+
+- Script: `egern/scripts/CF_Server_Monitor_Widget.js`
+- Module: `egern/yaml/CF_Server_Monitor_Widget.yaml`
+- Data source: `GET /api/servers` of [CF-Server-Monitor](https://github.com/huilang-me/CF-Server-Monitor)
+
+Module URL:
+
+```text
+https://raw.githubusercontent.com/vfelix7/rule_module_script/refs/heads/master/egern/yaml/CF_Server_Monitor_Widget.yaml
+```
+
+Required module env:
+
+```yaml
+CFSM_URL: "https://monitor.example.com"
+```
+
+Optional env:
+
+```yaml
+POLICY: "Proxy"            # needed when *.workers.dev is unreachable directly
+CFSM_TOKEN: "admin JWT"     # private site: token, or
+CFSM_USER: "admin"          # private site: login, token cached and renewed
+CFSM_PASS: "password"
+SERVERS: "HK-01,JP-02"      # names or IDs; empty shows all
+SHOW_HIDDEN: "false"
+TITLE: "CF Monitor"
+REFRESH_MINUTES: "15"
+EXPIRE_WARN_DAYS: "14"
+MAX_ROWS: "4"
+```
+
+The small widget shows the online ring, total speed, monthly traffic, and
+offline or expiry alerts. The medium widget lists one server per row with CPU,
+memory, and traffic. The large widget shows detail cards for up to 3 servers
+(CPU, memory, disk, traffic with a depletion estimate, ISP latency, expiry and
+price) and compact rows for more. Lock-screen sizes are supported. The global
+Turnstile option of the dashboard must be off, because widgets cannot pass it.
+Credentials are read only from the Egern module environment.
