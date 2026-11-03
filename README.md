@@ -81,9 +81,10 @@ publishes none, and IPv6 addresses are not scored. It also shows native or
 broadcast IP, residential or data center, location, ASN, and the IP. Set
 `POLICY` to a landing node to check that node's IP.
 
-The medium widget has three rows: location and time on top; the IP with its
-network on the left and the score with the strip on the right in the middle;
-the IP type and the label at the bottom.
+The medium widget has location and time on top, then the IP and the score on
+one line, then the network on the left and the strip on the right, and the IP
+type and the label at the bottom. The gaps between strip, pointer and band
+names are equal.
 
 In Egern, an element with `flex` fills both directions, even when it has a
 `height`, so a row that holds one grows taller and squeezes the spacers next to

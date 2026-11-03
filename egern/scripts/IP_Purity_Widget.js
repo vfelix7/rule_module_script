@@ -315,26 +315,39 @@ function pointer(m, size) {
   return fiveCells(band => (band === m.band ? [spacer(), mark, spacer()] : []), height);
 }
 
-// 每一格下面的档位名，亮起那一格用它的颜色加粗
+// 每一格下面的档位名，亮起那一格用它的颜色加粗。
+// 行高就取字号：中文字在行框里是上下居中的，字形约占 0.9 个字号，这样字的上沿离行顶只差半点，
+// 小三角到档位名的空隙才看得出和试纸到小三角的一样
 function legend(m, size) {
   return fiveCells(band => [
     spacer(),
     T(band.name, size, band === m.band ? solid(band) : C.faint, band === m.band ? 'semibold' : 'regular'),
     spacer(),
-  ], size + 6);
+  ], size);
 }
 
-// 读数、试纸、小三角、档位名从上到下排好；三个尺寸只是字号和间距不同。
-// 读数那一行的高度取数字字号，DIN Condensed 行框上下多出来的空白就不会把试纸推远
+// 试纸、小三角、档位名从上到下，三者之间的空隙一样大（s.space）
+function scale(m, s) {
+  return [
+    strip(m, s.bar),
+    spacer(s.space),
+    pointer(m, s.pointer),
+    m.band ? spacer(s.space) : null,
+    legend(m, s.legend),
+  ];
+}
+
+function scaleHeight(m, s) {
+  return s.bar + 4 + s.space + (m.band ? Math.round(s.pointer * 0.8) + s.space : 0) + s.legend;
+}
+
+// 小号、大号：读数居中放在试纸上方。读数那一行的高度取数字字号，
+// DIN Condensed 行框上下多出来的空白就不会把试纸推远
 function gauge(m, s) {
   return [
     center(reading(m, s.number, s.name), s.number),
     spacer(s.gap),
-    strip(m, s.bar),
-    spacer(s.gap + 3), // 小三角和试纸之间留出空隙
-    pointer(m, s.pointer),
-    m.band ? spacer(2) : null,
-    legend(m, s.legend),
+    ...scale(m, s),
   ];
 }
 
@@ -394,34 +407,40 @@ function smallWidget(m) {
     spacer(3),
     ipRow(m, 14, 9),
     spacer(),
-    ...gauge(m, { number: 28, name: 11, bar: 5, pointer: 8, legend: 9, gap: 3 }),
+    ...gauge(m, { number: 28, name: 11, bar: 5, pointer: 8, legend: 9, gap: 3, space: 5 }),
     spacer(),
     row(traits(m).map(t => traitView(t, 10)), { gap: 9 }),
   ], [12, 13, 11, 13], m);
 }
 
-// 中号是三行：顶行地区和时间；中间一行左边 IP 和运营商、右边分数和试纸，两边各自上下居中；底行类型和名称
+// 中号：顶行地区和时间；中间两行左右分栏（左 4 右 3），第一行 IP 和分数放在同一行、上下居中对齐，
+// 第二行左边运营商、右边试纸；底行类型和名称。中间两行都写明高度，上下多出的空间由 spacer 平分
 function mediumWidget(m) {
-  const identity = col([
-    spacer(),
-    ipText(m, 24),
-    spacer(4),
-    networkText(m, 11),
-    spacer(),
-  ], { flex: 4 });
+  const s = { number: 30, name: 12, bar: 6, pointer: 10, legend: 10, space: 6 };
+  const ipSize = 24;
+  const columns = (left, right, extra) => row([
+    { ...left, flex: 4 },
+    { ...right, flex: 3 },
+  ], { gap: 14, ...extra });
 
-  const verdict = col([
-    spacer(),
-    ...gauge(m, { number: 30, name: 12, bar: 6, pointer: 10, legend: 10, gap: 4 }),
-    spacer(),
-  ], { flex: 3 });
+  const headline = columns(
+    ipText(m, ipSize),
+    { type: 'stack', direction: 'row', children: [spacer(), reading(m, s.number, s.name), spacer()] },
+    { height: Math.max(s.number, Math.ceil(ipSize * 1.3)) },
+  );
+  const details = columns(
+    col([networkText(m, 11), spacer()]),
+    col([...scale(m, s), spacer()]),
+    { alignItems: 'start', height: Math.max(scaleHeight(m, s), 28) },
+  );
 
   return root([
     placeRow(m, 13, true),
-    spacer(4),
-    // 两栏都带 flex，这一行会撑满页眉和页脚之间的高度（根列里没有可伸缩的 spacer 跟它抢）
-    row([identity, verdict], { gap: 14 }),
-    spacer(4),
+    spacer(),
+    headline,
+    spacer(3),
+    details,
+    spacer(),
     row([
       ...traits(m).map(t => traitView(t, 10)),
       spacer(),
@@ -446,7 +465,7 @@ function largeWidget(m) {
     spacer(4),
     ipRow(m, 22, 12),
     spacer(),
-    ...gauge(m, { number: 56, name: 16, bar: 11, pointer: 13, legend: 12, gap: 5 }),
+    ...gauge(m, { number: 56, name: 16, bar: 11, pointer: 13, legend: 12, gap: 5, space: 7 }),
     spacer(),
     col([
       detail('类型', kind ? kind.long : '未知', kind?.good),
