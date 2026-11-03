@@ -29,6 +29,28 @@ https://raw.githubusercontent.com/vfelix7/rule_module_script/refs/heads/master/s
 
 - Script: `egern/scripts/QWeather_Widget.js`
 
+### Network Security Check
+
+- Script: `egern/scripts/Network_Security_Widget.js`
+- Module: `egern/module/Network_Security_Widget.yaml`
+
+Module URL:
+
+```text
+https://raw.githubusercontent.com/vfelix7/rule_module_script/refs/heads/master/egern/module/Network_Security_Widget.yaml
+```
+
+Optional env:
+
+```yaml
+MONITOR_POLICY: "Proxy"   # policy for the proxy egress check; empty follows routing rules
+SHOW_IP: "false"          # true shows the full egress IP
+REFRESH_MINUTES: "10"     # 5-60
+```
+
+The widget checks egress isolation (proxy vs direct), DNS leaks, IPv6
+routing, the TLS version, and captive portals.
+
 ### Streaming and AI Unlock
 
 - Script: `egern/scripts/Streaming_Unlock_Widget.js`

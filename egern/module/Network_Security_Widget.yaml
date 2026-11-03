@@ -1,0 +1,35 @@
+name: "网络安全检测"
+description: "检测出口隔离、DNS 泄漏、IPv6 路由、TLS 版本和强制门户"
+author: "vfelix7"
+icon: "checkmark.shield"
+
+env_schema:
+  MONITOR_POLICY:
+    name: "代理策略"
+    description: "检测代理出口时使用的策略或策略组（如 Proxy）；留空则按 Egern 分流规则"
+  SHOW_IP:
+    name: "显示完整 IP"
+    description: "关闭时出口 IP 中间段打码"
+    options:
+      - "true"
+      - "false"
+  REFRESH_MINUTES:
+    name: "刷新间隔（分钟）"
+    description: "5–60"
+    default_value: "10"
+
+scriptings:
+  - generic:
+      name: "network-security-widget"
+      script_url: "https://raw.githubusercontent.com/vfelix7/rule_module_script/refs/heads/master/egern/scripts/Network_Security_Widget.js"
+      update_interval: 300
+      timeout: 20
+
+widgets:
+  - name: "网络安全检测"
+    script_name: "network-security-widget"
+
+# 无需必填环境变量。可选：
+# MONITOR_POLICY: "Proxy"     # 指定检测代理出口用的策略组；留空按分流规则
+# SHOW_IP: "false"            # true 显示完整出口 IP
+# REFRESH_MINUTES: "10"       # 5–60
