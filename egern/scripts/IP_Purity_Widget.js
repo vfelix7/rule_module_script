@@ -313,13 +313,11 @@ function refreshAt(minutes) {
 
 // ───────────────────────────── DSL ─────────────────────────────
 
+// 文字一律用系统字体（不写 family）
 function T(text, size, color, weight = 'regular', extra = {}) {
-  const font = { size, weight };
-  if (extra.family) font.family = extra.family;
-  const el = { type: 'text', text: String(text), font, maxLines: 1 };
+  const el = { type: 'text', text: String(text), font: { size, weight }, maxLines: 1 };
   if (color) el.textColor = color;
-  const { family, ...rest } = extra;
-  return { ...el, ...rest };
+  return { ...el, ...extra };
 }
 
 function row(children, extra = {}) {
@@ -540,7 +538,7 @@ function smallWidget(m) {
   return root([
     side(captionRow(m, 12, false)),
     spacer(9),
-    side(heroIP(m, 17)),
+    side(heroIP(m, 16)),
     org ? spacer(7) : null,
     org ? side(org) : null,
     spacer(),

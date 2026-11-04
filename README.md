@@ -114,7 +114,7 @@ cached per ASN for 30 days in Egern's storage, and a failed lookup is tried
 again after an hour.
 
 The small widget has the location and time in small gray type on top, then the
-IP in 17pt bold with its operator below it in gray. The meter is smaller there
+IP in 16pt bold with its operator below it in gray. The meter is smaller there
 and has no ticks, and sits halfway between the operator and the bottom row,
 which has the IP type on the left and the `LABEL` name on the right. A long
 operator name wraps to a second line instead of shrinking.
@@ -124,6 +124,9 @@ left, and the meter on the right with its label level with the IP. The IP type
 and the `LABEL` name are at the bottom. Lock-screen widgets show the score and a
 two-character band name (极净, 纯净, 中性, 轻险, 中险, 极险), since the system
 tints them in one color.
+
+All text uses the system font: SF Pro, with PingFang for Chinese. The meter's
+SVG asks for `-apple-system`, which is the same font.
 
 In Egern, an element with `flex` fills both directions, even when it has a
 `height`, so a row that holds one grows taller and squeezes the spacers next to
