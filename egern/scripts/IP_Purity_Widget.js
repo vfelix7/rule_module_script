@@ -257,18 +257,19 @@ function readBool(value) {
   return null;
 }
 
-// 原生 / 广播，住宅 / 机房：对代理用户有利的一侧用 good 的绿，另一侧用 bad 的粉，跟官网一样
+// 原生 / 广播，住宅 / 机房：对代理用户有利的一侧用 good 的绿，另一侧用 bad 的粉，跟官网一样。
+// short 用在小号、中号的底行，long 用在大号的详情里（不加说明，机房、广播后面不再解释）
 function traits(m) {
   const list = [];
   if (m.broadcast !== null) {
     list.push(m.broadcast
-      ? { icon: 'dot.radiowaves.left.and.right', short: '广播', long: '广播 IP，注册地和所在地不同', good: false }
+      ? { icon: 'dot.radiowaves.left.and.right', short: '广播', long: '广播 IP', good: false }
       : { icon: 'checkmark.seal.fill', short: '原生', long: '原生 IP', good: true });
   }
   if (m.residential !== null) {
     list.push(m.residential
       ? { icon: 'house.fill', short: '住宅', long: '住宅宽带', good: true }
-      : { icon: 'server.rack', short: '机房', long: '机房（数据中心）', good: false });
+      : { icon: 'server.rack', short: '机房', long: '机房', good: false });
   }
   return list;
 }
@@ -354,7 +355,7 @@ const SVG_FONT = "-apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif";
 const METER = {
   small: { width: 158, inset: [13, 13], font: 10, bar: 4, tick: 0 }, // 小号的纯净度只当配角，缩小、不画刻度
   medium: { width: 148, inset: [0, 16], font: 11, bar: 6, tick: 8.5 },
-  large: { width: 338, inset: [16, 16], font: 20, bar: 10, tick: 12 },
+  large: { width: 338, inset: [16, 16], font: 15, bar: 8, tick: 11 }, // 比 IP（22）小，不跟 IP 抢
 };
 
 // 分数在色条上的位置（0–1）：每档占六分之一，档内按分数线性。官网就是这样：61 分在 50–70 这档的 55% 处
@@ -604,12 +605,13 @@ function mediumWidget(m) {
 function detail(label, value, good) {
   const color = good === true ? C.good : good === false ? C.bad : C.ink;
   return row([
-    { type: 'stack', direction: 'row', width: 42, children: [T(label, 12, C.faint, 'medium'), spacer()] },
-    T(value, 13, color, 'medium', { minScale: 0.7, flex: 1 }),
-  ], { gap: 8, height: 20 }); // 不低于中文的行高，否则带 minScale 的文字会被缩小
+    { type: 'stack', direction: 'row', width: 46, children: [T(label, 13, C.faint, 'medium'), spacer()] },
+    T(value, 15, color, 'medium', { minScale: 0.7, flex: 1 }),
+  ], { gap: 8, height: 24 }); // 不低于中文的行高，否则带 minScale 的文字会被缩小
 }
 
-// 大号：跟小号一样，左右边距放在各行上，色条的画布横跨整个小组件
+// 大号：跟小号一样，左右边距放在各行上，色条的画布横跨整个小组件。
+// IP 和纯净度挨在一起（固定空 18），算一组；顶行和 IP 之间、纯净度和详情之间各放一个 spacer，平分剩下的高度
 function largeWidget(m) {
   const kinds = traits(m);
   const source = kinds.find(t => t.short === '原生' || t.short === '广播');
@@ -617,9 +619,9 @@ function largeWidget(m) {
   const side = el => ({ ...el, padding: [0, 16, 0, 16] });
   return root([
     side(placeRow(m, 16, true)),
-    spacer(4),
-    side(ipRow(m, 22, 12)),
     spacer(),
+    side(ipRow(m, 22, 12)),
+    spacer(18),
     meter(m, METER.large).view,
     spacer(),
     side(col([
@@ -628,7 +630,7 @@ function largeWidget(m) {
       detail('ASN', m.asn || '未知'),
       detail('运营商', m.org || '未知'),
       detail('检测', m.policy ? `策略「${m.policy}」` : '跟随分流规则'),
-    ], { gap: 6 })),
+    ], { gap: 8 })),
   ], [16, 0, 15, 0], m);
 }
 
