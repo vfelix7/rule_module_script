@@ -89,6 +89,9 @@ The band colors are Tailwind's green-800, green-500, lime-500, yellow-500,
 orange-500 and red-600 (`#166534`, `#22C55E`, `#84CC16`, `#EAB308`, `#F97316`,
 `#DC2626`). Screenshots from an iPhone or a Mac are in Display P3, so their
 pixels read as sRGB look duller; converted to sRGB they match these values.
+Native and residential are green (`#48C78E`), broadcast and data center pink
+(`#FE6685`): the pair ippure.com uses for human and bot traffic. On the large
+widget, the 属性 and 来源 rows show these as colored text.
 
 Egern does not tell a script how wide the widget is, so the SVG is drawn at the
 iPhone 15/16 size and scaled to the real width. Positions scale with the bar and

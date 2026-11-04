@@ -38,13 +38,15 @@ const ASN_TTL = 30 * 24 * 3600 * 1000; // 查到的持有者存 30 天
 const ASN_RETRY = 3600 * 1000; // 没查到（超时、出错）1 小时后再试，免得每次刷新都多等几秒
 
 // 底色取 CF 探针「流量延迟版」渐变最上方的颜色（纯色，不渐变），文字灰度也跟它一致；
-// 彩色只用来表达含义。good（原生、住宅这些对代理有利的）用官网纯净那一档的绿
+// 彩色只用来表达含义。good、bad 是官网的那一对绿和粉（官网「人机流量比」里 human、bot 用的就是它们）：
+// 原生、住宅这些对代理有利的用 good，广播、机房用 bad
 const C = {
   bg: { light: '#FFFFFF', dark: '#161B22' },
   ink: { light: '#1F2328', dark: '#E6EDF3' },
   soft: { light: '#59636E', dark: '#8B949E' },
   faint: { light: '#818B98', dark: '#6E7681' },
-  good: { light: '#22C55E', dark: '#22C55E' },
+  good: { light: '#48C78E', dark: '#48C78E' },
+  bad: { light: '#FE6685', dark: '#FE6685' },
   warn: { light: '#B4600F', dark: '#F0A040' },
 };
 
@@ -236,7 +238,6 @@ function buildModel(data, cfg, holder) {
     org: holder || String(data.asOrganization || '').trim(),
     residential: readBool(data.isResidential),
     broadcast: readBool(data.isBroadcast),
-    timezone: String(data.timezone || '').trim(),
     name: cfg.label || cfg.policy,
     policy: cfg.policy,
     time: clock(),
@@ -256,7 +257,7 @@ function readBool(value) {
   return null;
 }
 
-// 原生 / 广播，住宅 / 机房：对代理用户有利的一侧用青绿色
+// 原生 / 广播，住宅 / 机房：对代理用户有利的一侧用 good 的绿，另一侧用 bad 的粉，跟官网一样
 function traits(m) {
   const list = [];
   if (m.broadcast !== null) {
@@ -477,10 +478,11 @@ function estimateWidth(text, size) {
   return em * size;
 }
 
+// 图标用 good / bad 的颜色，文字一律正文色
 function traitView(t, size) {
   return row([
-    icon(t.icon, size, t.good ? C.good : C.faint),
-    T(t.short, size + 1, t.good ? C.ink : C.soft, 'medium'),
+    icon(t.icon, size, t.good ? C.good : C.bad),
+    T(t.short, size + 1, C.ink, 'medium'),
   ], { gap: 3 });
 }
 
@@ -562,10 +564,12 @@ function mediumWidget(m) {
   ], [14, 0, 13, 16], m);
 }
 
+// 值的颜色：属性、来源对代理有利的用 good，不利的用 bad；其他行不传 good，用正文色
 function detail(label, value, good) {
+  const color = good === true ? C.good : good === false ? C.bad : C.ink;
   return row([
     { type: 'stack', direction: 'row', width: 42, children: [T(label, 12, C.faint, 'medium'), spacer()] },
-    T(value, 13, good ? C.good : C.ink, 'medium', { minScale: 0.7, flex: 1 }),
+    T(value, 13, color, 'medium', { minScale: 0.7, flex: 1 }),
   ], { gap: 8, height: 20 }); // 不低于中文的行高，否则带 minScale 的文字会被缩小
 }
 
@@ -583,11 +587,10 @@ function largeWidget(m) {
     meter(m, METER.large).view,
     spacer(),
     side(col([
-      detail('类型', kind ? kind.long : '未知', kind?.good),
+      detail('属性', kind ? kind.long : '未知', kind?.good),
       detail('来源', source ? source.long : '未知', source?.good),
       detail('ASN', m.asn || '未知'),
       detail('运营商', m.org || '未知'),
-      m.timezone ? detail('时区', m.timezone) : null,
       detail('检测', m.policy ? `策略「${m.policy}」` : '跟随分流规则'),
     ], { gap: 6 })),
   ], [16, 0, 15, 0], m);
