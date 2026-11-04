@@ -97,7 +97,18 @@ is 12% taller than the drawing, so the width fills first even on a Pro Max. The
 drawing reaches the widget's right edge (both edges on small and large) and the
 bar is inset to line up with the rows above and below, so 100 can sit centered
 on the bar's end as on the site. The label stops at the ends of the bar, and its
-pointer still marks the score.
+pointer still marks the score. On the device, Egern draws the gray tick digits
+about 0.17em below the baseline the SVG gives them (the label's bold text is
+where it should be), so the ticks are raised by that much and the drawing keeps
+room below them.
+
+The 运营商 row shows the holder of the AS, looked up by ASN on RIPEstat
+(`https://stat.ripe.net/data/as-overview/data.json?resource=AS<asn>`), which is
+what ippure.com shows next to the ASN. IPPure's own `asOrganization` is
+sometimes whoever uses the address block rather than the AS holder (an IIJ block
+on AS2497 comes back as Stacks Inc.), so it is only the fallback. The holder is
+cached per ASN for 30 days in Egern's storage, and a failed lookup is tried
+again after an hour.
 
 The medium widget has location and time on top, the IP, ASN and 运营商 on the
 left, and the meter on the right with its label level with the IP. The IP type

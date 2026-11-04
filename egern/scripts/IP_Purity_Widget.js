@@ -5,6 +5,9 @@
  *   fraudScore     风险分 0–100，越高越容易被风控；IPv6 不评分
  *   isResidential  住宅宽带 / 机房
  *   isBroadcast    广播 IP（注册地和所在地不同）/ 原生 IP
+ *   asOrganization 组织；有时是这段 IP 的使用方，不是 AS 的持有者
+ * 运营商另用 ASN 去 RIPEstat 查 AS 的持有者（跟官网 ASN 那一栏一致），按 ASN 缓存 30 天，查不到时用 asOrganization：
+ *   https://stat.ripe.net/data/as-overview/data.json?resource=AS<asn>   data.holder
  *
  * 样式：照 IPPure 官网的色条，画成一张 SVG。六档等宽连成一条，从左到右极净到极险，颜色取自官网；
  * 色条上方是那一档颜色的标签，写「分数% 档位名」，标签下的小三角指着分数的确切位置
@@ -29,6 +32,10 @@
 const API_URL = 'https://my.ippure.com/v1/info';
 const SITE_URL = 'https://ippure.com/';
 const TIMEOUT = 8000;
+const ASN_URL = 'https://stat.ripe.net/data/as-overview/data.json?resource=AS';
+const ASN_TIMEOUT = 4000;
+const ASN_TTL = 30 * 24 * 3600 * 1000; // 查到的持有者存 30 天
+const ASN_RETRY = 3600 * 1000; // 没查到（超时、出错）1 小时后再试，免得每次刷新都多等几秒
 
 // 底色取 CF 探针「流量延迟版」渐变最上方的颜色（纯色，不渐变），文字灰度也跟它一致；
 // 彩色只用来表达含义。good（原生、住宅这些对代理有利的）用官网纯净那一档的绿
@@ -75,7 +82,8 @@ export default async function (ctx) {
   const family = ctx.widgetFamily || 'systemMedium';
   let m;
   try {
-    m = buildModel(await fetchInfo(ctx, cfg), cfg);
+    const data = await fetchInfo(ctx, cfg);
+    m = buildModel(data, cfg, await asHolder(ctx, cfg, data.asn));
   } catch (error) {
     const err = error instanceof WidgetError ? error : new WidgetError('出错了', shorten(error?.message || error, 80));
     return errorWidget(family, cfg, err);
@@ -150,7 +158,64 @@ function httpError(status, cfg) {
   return new WidgetError(`IPPure 出错，HTTP ${status}`, '稍后会自动重试。');
 }
 
-function buildModel(data, cfg) {
+// 运营商：用 ASN 去 RIPEstat 查这个 AS 登记的持有者，官网 ASN 那一栏显示的就是它。
+// IPPure 接口的 asOrganization 有时是这段 IP 的使用方：比如 IIJ（AS2497）分给 Stacks Inc. 的地址，
+// 官网写 Internet Initiative Japan Inc.，接口给的是 Stacks Inc.。
+// 按 ASN 缓存在 ctx.storage：查到的存 30 天；没查到记下来，1 小时后再试，期间沿用上次查到的名称。
+// 从不抛错，拿不到就返回空字符串，外面退回 asOrganization
+async function asHolder(ctx, cfg, asn) {
+  const num = Number(asn);
+  if (!(num > 0)) return '';
+  const key = `ippure_as_holder_${num}`;
+  const now = Date.now();
+  const cached = storageGet(ctx, key);
+  const known = cached && typeof cached === 'object' ? String(cached.name || '') : '';
+  if (cached && now - Number(cached.ts || 0) < (cached.failed ? ASN_RETRY : ASN_TTL)) return known;
+  try {
+    const options = { timeout: ASN_TIMEOUT };
+    if (cfg.policy) options.policy = cfg.policy;
+    const response = await ctx.http.get(ASN_URL + num, options);
+    const name = holderName(parseJSON(await response.text())?.data?.holder);
+    storageSet(ctx, key, { name, ts: now });
+    return name;
+  } catch {
+    storageSet(ctx, key, { name: known, ts: now, failed: true });
+    return known;
+  }
+}
+
+// RIPEstat 的 holder 多是「AS 名 + 持有者」：ARIN 的写成「CLOUDFLARENET - Cloudflare, Inc.」，
+// APNIC、RIPE 的写成「IIJ Internet Initiative Japan Inc.」「OVH OVH SAS」。去掉前面的 AS 名
+// （全是大写字母、数字、连字符的那一段），只留持有者；剩下的像地址（「No.31,Jin-rong Street」）就不要
+function holderName(holder) {
+  const text = String(holder || '').replace(/\s+/g, ' ').trim();
+  if (!text) return '';
+  const dash = text.indexOf(' - ');
+  if (dash > 0) return text.slice(dash + 3).trim();
+  const parts = text.match(/^([A-Z0-9][A-Z0-9_-]*) (.+)$/);
+  const rest = parts ? parts[2] : '';
+  const name = rest && (/[a-z]/.test(rest) || rest.toUpperCase().includes(parts[1])) ? rest : text;
+  return /\d\s*,|^No\.?\s*\d/i.test(name) ? '' : name;
+}
+
+// Egern 的 ctx.storage 读写 JSON；用不了就当没有缓存
+function storageGet(ctx, key) {
+  try {
+    return ctx.storage.getJSON(key) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function storageSet(ctx, key, value) {
+  try {
+    ctx.storage.setJSON(key, value);
+  } catch {
+    // 存不了下次再查
+  }
+}
+
+function buildModel(data, cfg, holder) {
   const ip = String(data.ip);
   const score = readScore(data.fraudScore);
   const code = String(data.countryCode || '').trim().toUpperCase();
@@ -168,7 +233,7 @@ function buildModel(data, cfg) {
     country,
     city: sameAsCountry ? '' : city,
     asn: Number(data.asn) > 0 ? `AS${Number(data.asn)}` : '',
-    org: String(data.asOrganization || '').trim(),
+    org: holder || String(data.asOrganization || '').trim(),
     residential: readBool(data.isResidential),
     broadcast: readBool(data.isBroadcast),
     timezone: String(data.timezone || '').trim(),
@@ -323,8 +388,11 @@ function meterSvg(m, p) {
   const arrowW = Math.round(f * 0.7);
   const arrowH = Math.round(f * 0.5);
   const barY = badgeH + arrowH + Math.max(1, Math.round(f * 0.08));
-  const tickBase = barY + p.bar + Math.round(p.tick * 0.35) + p.tick * 0.7;
-  const height = Math.ceil(tickBase + 1);
+  // 刻度：色条下面空 0.35 个字号，数字高 0.7 个字号。真机上量过，Egern 画刻度数字比写的基线低约 0.17 个字号
+  // （标签里的粗体字没有这个偏差），所以基线先往上挪回来；画布底下再多留 0.3 个字号，偏差再大一点也不会被裁
+  const tickShift = p.tick * 0.17;
+  const tickBase = barY + p.bar + Math.round(p.tick * 0.35) + p.tick * 0.7 - tickShift;
+  const height = Math.ceil(tickBase + tickShift + p.tick * 0.3);
 
   // 相邻两段多画半点，免得接缝处透出底色
   const bar = BANDS.map((band, i) => {
