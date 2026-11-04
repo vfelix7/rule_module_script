@@ -606,7 +606,7 @@ function detail(label, value, good) {
   const color = good === true ? C.good : good === false ? C.bad : C.ink;
   return row([
     { type: 'stack', direction: 'row', width: 46, children: [T(label, 13, C.faint, 'medium'), spacer()] },
-    T(value, 15, color, 'medium', { minScale: 0.7, flex: 1 }),
+    T(value, 13, color, 'medium', { minScale: 0.7, flex: 1 }), // 跟标签一样大，靠颜色区分
   ], { gap: 8, height: 24 }); // 不低于中文的行高，否则带 minScale 的文字会被缩小
 }
 

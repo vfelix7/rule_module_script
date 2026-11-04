@@ -127,8 +127,9 @@ The large widget has location and time on top, then the IP in 22pt with the
 `LABEL` name on its right. The IP sits 18pt above the meter, so the two read as
 one group, and the height left over is split between the gap under the top row
 and the gap above the details. The meter's label is 15pt there, smaller than the
-IP. The details list 属性, 来源, ASN, 运营商 and 检测, with 13pt labels and 15pt
-values; 属性 and 来源 say only 机房 or 广播 IP, with no explanation after them.
+IP. The details list 属性, 来源, ASN, 运营商 and 检测, with labels and values
+both in 13pt and told apart by color; 属性 and 来源 say only 机房 or 广播 IP, with
+no explanation after them.
 
 Lock-screen widgets show the score and a two-character band name (极净, 纯净,
 中性, 轻险, 中险, 极险), since the system tints them in one color.
