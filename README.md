@@ -73,26 +73,37 @@ REFRESH_MINUTES: "10"
 LABEL: "Tokyo"          # tells widgets apart: next to the IP, bottom right on medium; defaults to the policy name
 ```
 
-The widget reads like a test strip: five bands from 极净 to 很差, the band the
-IPPure risk score falls in is raised, the score sits centered above the strip
-in that band's color, a pointer under the strip marks the raised band, and the
-band names run along the bottom. The thresholds (20, 40, 60, 80) are the
-widget's own, since IPPure publishes none, and IPv6 addresses are not scored.
-It also shows native or broadcast IP, residential or data center, location,
-ASN, and the IP. Set `POLICY` to a landing node to check that node's IP.
+The widget draws the same meter as ippure.com, as one SVG: six equal bands in
+one bar, from 极度纯净 to 极度风险, in the site's colors. A label in the band's
+color sits above the bar with the score and the site's name for the band, and
+its pointer marks the exact score: as on the site, each band takes a sixth of
+the bar and the score is linear inside it, so 61 sits 55% into 50–70. The
+boundaries 0, 15, 25, 40, 50, 70 and 100 run below the bar. The bands follow
+the site: 0–15 极度纯净, 16–25 纯净, 26–40 中性, 41–50 轻度风险, 51–70 中度风险
+and 71–100 极度风险, with a boundary value in the lower band. IPv6 addresses are
+not scored. The widget also shows native or broadcast IP, residential or data
+center, location, ASN, and the IP. Set `POLICY` to a landing node to check that
+node's IP.
 
-The medium widget has location and time on top. The IP sits at the left on
-the same line as the score, both 20pt; below them are the ASN and 运营商 rows on
-the left and the strip on the right. The IP type and the label are at the
-bottom. All text uses the system font, and the gaps between strip, pointer and
-band names are equal.
+The band colors are Tailwind's green-800, green-500, lime-500, yellow-500,
+orange-500 and red-600 (`#166534`, `#22C55E`, `#84CC16`, `#EAB308`, `#F97316`,
+`#DC2626`). Screenshots from an iPhone or a Mac are in Display P3, so their
+pixels read as sRGB look duller; converted to sRGB they match these values.
 
-The bands that are not raised use lighter shades of the same colors (darker in
-dark mode). These shades are fixed colors with the same hue, not the band color
-made transparent: over a white background a transparent orange and red both
-fade to a similar pink, and over the dark background yellow and orange turn
-olive and brown. Lock-screen widgets still show the band name after the score,
-since the system tints them in one color.
+Egern does not tell a script how wide the widget is, so the SVG is drawn at the
+iPhone 15/16 size and scaled to the real width. Positions scale with the bar and
+stay exact; text is slightly larger or smaller on other phones. The image frame
+is 12% taller than the drawing, so the width fills first even on a Pro Max. The
+drawing reaches the widget's right edge (both edges on small and large) and the
+bar is inset to line up with the rows above and below, so 100 can sit centered
+on the bar's end as on the site. The label stops at the ends of the bar, and its
+pointer still marks the score.
+
+The medium widget has location and time on top, the IP, ASN and 运营商 on the
+left, and the meter on the right with its label level with the IP. The IP type
+and the `LABEL` name are at the bottom. Lock-screen widgets show the score and a
+two-character band name (极净, 纯净, 中性, 轻险, 中险, 极险), since the system
+tints them in one color.
 
 In Egern, an element with `flex` fills both directions, even when it has a
 `height`, so a row that holds one grows taller and squeezes the spacers next to

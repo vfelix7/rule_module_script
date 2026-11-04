@@ -6,9 +6,11 @@
  *   isResidential  住宅宽带 / 机房
  *   isBroadcast    广播 IP（注册地和所在地不同）/ 原生 IP
  *
- * 样式：一条「试纸」。五格从极净到很差，风险分落在哪格，哪格就显色凸起；
- * 分数用那一格的颜色，居中放在试纸上方，下方的小三角对准亮起的那一格，最下面一排是五个档位名。
- * 分档是小组件自己定的（IPPure 没有公布）：0–19 极净，20–39 纯净，40–59 一般，60–79 较差，80 以上很差。
+ * 样式：照 IPPure 官网的色条，画成一张 SVG。六档等宽连成一条，从左到右极净到极险，颜色取自官网；
+ * 色条上方是那一档颜色的标签，写「分数% 档位名」，标签下的小三角指着分数的确切位置
+ * （每档占六分之一，档内按分数线性）；色条下方是分界刻度 0 15 25 40 50 70 100。
+ * 分档跟官网一致：0–15 极度纯净，16–25 纯净，26–40 中性，41–50 轻度风险，51–70 中度风险，71–100 极度风险，
+ * 分界值归前一档。标签写官网全称；锁屏地方小，用两个字的简称（极净、纯净、中性、轻险、中险、极险）。
  *
  * 布局注意（真机上确认过）：Egern 里带 flex 的元素横竖两个方向都会撑满，写了 height 也只是可见部分的高度；
  * 装着它的 row 会跟着被纵向拉高，同一列里的 spacer 被压成 0。所以凡是装着 flex 子元素的 row 都写明 height。
@@ -29,34 +31,31 @@ const SITE_URL = 'https://ippure.com/';
 const TIMEOUT = 8000;
 
 // 底色取 CF 探针「流量延迟版」渐变最上方的颜色（纯色，不渐变），文字灰度也跟它一致；
-// 彩色只用来表达含义
+// 彩色只用来表达含义。good（原生、住宅这些对代理有利的）用官网纯净那一档的绿
 const C = {
   bg: { light: '#FFFFFF', dark: '#161B22' },
   ink: { light: '#1F2328', dark: '#E6EDF3' },
   soft: { light: '#59636E', dark: '#8B949E' },
   faint: { light: '#818B98', dark: '#6E7681' },
-  good: { light: '#0F8F82', dark: '#3CCFBD' },
+  good: { light: '#22C55E', dark: '#22C55E' },
   warn: { light: '#B4600F', dark: '#F0A040' },
 };
 
-// 每档的颜色：亮起的格子、分数、档位名用 light / dark；没亮的格子用 faded，是同一个颜色调淡（深色模式下调暗）。
-// faded 是在 OKLCH 里算好的：色相不变，彩度留一半，明度往底色靠 62%。
-// 不直接给原色加透明度：那样浅色模式下橙和红会淡成差不多的粉色、黄色淡成米色；
-// 深色模式下底色偏蓝，黄和橙会混成橄榄色和棕色，红会偏紫
+// 每档的颜色就是 IPPure 官网色条的颜色（Tailwind 的 green-800、green-500、lime-500、yellow-500、orange-500、red-600；
+// 官网截图是 Display P3，按 P3 换回 sRGB 后就是这几个值）。max 是这一档的上限，分界值归前一档；
+// name 是官网的名称（标签用），short 是两个字的简称（锁屏用）
 const BANDS = [
-  { min: 0, name: '极净', light: '#0F8F82', dark: '#2CC4B3', faded: { light: '#A7D7CF', dark: '#1D5750' } },
-  { min: 20, name: '纯净', light: '#4E9A2A', dark: '#84CC52', faded: { light: '#B5DCA8', dark: '#3B5A27' } },
-  { min: 40, name: '一般', light: '#A87F00', dark: '#E9BE2C', faded: { light: '#E2CDA0', dark: '#655219' } },
-  { min: 60, name: '较差', light: '#C9601C', dark: '#F08C42', faded: { light: '#F9C0A3', dark: '#6B4021' } },
-  { min: 80, name: '很差', light: '#C8323C', dark: '#F05A62', faded: { light: '#FEB0AC', dark: '#6E2D2F' } },
+  { max: 15, name: '极度纯净', short: '极净', color: '#166534' },
+  { max: 25, name: '纯净', short: '纯净', color: '#22C55E' },
+  { max: 40, name: '中性', short: '中性', color: '#84CC16' },
+  { max: 50, name: '轻度风险', short: '轻险', color: '#EAB308' },
+  { max: 70, name: '中度风险', short: '中险', color: '#F97316' },
+  { max: 100, name: '极度风险', short: '极险', color: '#DC2626' },
 ];
-const solid = band => ({ light: band.light, dark: band.dark });
 
-// 全部用系统字体（SF Pro）。行框单位是字号：上沿到基线 0.95，基线到下沿 0.24；
-// 行框居中摆放时，基线在中心下方 (ascent - descent) / 2
+// 全部用系统字体（SF Pro）。行框单位是字号：上沿到基线 0.95，基线到下沿 0.24
 const FONT = { ascent: 0.95, descent: 0.24 };
 const lineHeight = size => (FONT.ascent + FONT.descent) * size;
-const baselineBelowCenter = size => ((FONT.ascent - FONT.descent) / 2) * size;
 
 const COUNTRY_ZH = {
   HK: '香港', MO: '澳门', TW: '台湾', CN: '中国', JP: '日本', KR: '韩国', SG: '新加坡', MY: '马来西亚',
@@ -164,7 +163,7 @@ function buildModel(data, cfg) {
     shownIP: cfg.markIP ? maskIP(ip) : ip,
     isV6: ip.includes(':'),
     score,
-    band: score === null ? null : BANDS.filter(band => score >= band.min).pop(),
+    band: score === null ? null : BANDS.find(band => Math.round(score) <= band.max),
     flag: flagEmoji(code),
     country,
     city: sameAsCountry ? '' : city,
@@ -279,92 +278,94 @@ function center(child, height) {
   return row([spacer(), child, spacer()], height ? { height } : {});
 }
 
-// 和试纸对齐的五格：每格 flex 1、间距 3，跟试纸的五段一样宽，格子里的东西就正对着那一段。
-// 格子带 flex 会把这一行撑高，所以 height 必须写明
-function fiveCells(fill, height) {
-  return row(BANDS.map((band, i) => ({ type: 'stack', direction: 'row', flex: 1, children: fill(band, i) })), { gap: 3, height });
+// ───────────────────────────── 色条 ─────────────────────────────
+
+const TICKS = [0, 15, 25, 40, 50, 70, 100];
+const TICK_GRAY = '#888888'; // 官网刻度的灰，白底和深色底上都看得清，所以 SVG 不用分深浅模式
+const SVG_FONT = "-apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif";
+
+// 色条参数（pt，按 iPhone 15/16 的尺寸）：width 是画布宽度，inset 是色条离画布左右两边的距离。
+// 画布一直伸到小组件右边缘（小号、大号左右都伸到边），色条两端仍跟上下几行的内容对齐，
+// 100 才能像官网那样居中在色条末端、往外伸出一点。font 是标签字号，bar 是色条厚度，tick 是刻度字号
+const METER = {
+  small: { width: 158, inset: [13, 13], font: 11, bar: 6, tick: 8.5 },
+  medium: { width: 148, inset: [0, 16], font: 11, bar: 6, tick: 8.5 },
+  large: { width: 338, inset: [16, 16], font: 20, bar: 10, tick: 12 },
+};
+
+// 分数在色条上的位置（0–1）：每档占六分之一，档内按分数线性。官网就是这样：61 分在 50–70 这档的 55% 处
+function position(score, band) {
+  const i = BANDS.indexOf(band);
+  const lo = i === 0 ? 0 : BANDS[i - 1].max;
+  return (i + (score - lo) / (band.max - lo)) / BANDS.length;
 }
 
-// ───────────────────────────── 试纸 ─────────────────────────────
+// 粗估文字宽度，单位是字号：数字 0.62，% 0.9，空格 0.28，中文 1
+function textEm(text) {
+  let em = 0;
+  for (const ch of text) em += /\d/.test(ch) ? 0.62 : ch === '%' ? 0.9 : /\s/.test(ch) ? 0.28 : /[　-鿿]/.test(ch) ? 1 : 0.62;
+  return em;
+}
 
-// 读数：只有分数，用它那一档的颜色（档位名试纸下面已经有了）；没有分数时（IPv6 或接口没给）显示原因。
-// 分数外面包一层 row，readingBlock 要给它加边距
-function reading(m, numberSize, noteSize) {
-  if (m.score === null) {
-    return T(m.isV6 ? 'IPv6 不评分' : '暂无评分', noteSize, C.soft, 'semibold');
+// 色条画成 SVG，比例照官网量的：标签高 1.5 个字号，左右各留 0.75 个字号，圆角 0.2 个字号，
+// 分数和档位名之间空两个空格；小三角宽 0.7、高 0.5 个字号，尖端离色条 0.08 个字号；
+// 六档等宽、连在一起、两端直角；刻度在色条下方，跟官网一样 0 靠左对齐色条左端，100 居中在色条右端，其余对准分界。
+// 标签以分数位置为中心，碰到色条两端就停在边上；小三角的尖端仍然指着分数位置，
+// 底边最多挪到标签的边上（压住圆角，像对话气泡的尾巴）。没有分数时（IPv6 或接口没给）是灰色标签写原因，不画小三角
+function meterSvg(m, p) {
+  const W = p.width;
+  const f = p.font;
+  const r = n => Math.round(n * 100) / 100;
+  const x0 = p.inset[0];
+  const x1 = W - p.inset[1];
+  const segment = (x1 - x0) / BANDS.length;
+  const badgeH = Math.round(f * 1.5);
+  const arrowW = Math.round(f * 0.7);
+  const arrowH = Math.round(f * 0.5);
+  const barY = badgeH + arrowH + Math.max(1, Math.round(f * 0.08));
+  const tickBase = barY + p.bar + Math.round(p.tick * 0.35) + p.tick * 0.7;
+  const height = Math.ceil(tickBase + 1);
+
+  // 相邻两段多画半点，免得接缝处透出底色
+  const bar = BANDS.map((band, i) => {
+    const w = segment + (i < BANDS.length - 1 ? 0.5 : 0);
+    return `<rect x="${r(x0 + i * segment)}" y="${barY}" width="${r(w)}" height="${p.bar}" fill="${band.color}"/>`;
+  }).join('');
+
+  const ticks = TICKS.map((t, i) => {
+    const anchor = i === 0 ? 'start' : 'middle';
+    return `<text x="${r(x0 + i * segment)}" y="${r(tickBase)}" text-anchor="${anchor}" font-size="${p.tick}" fill="${TICK_GRAY}">${t}</text>`;
+  }).join('');
+
+  // 分数和档位名之间用两个不换行空格：普通空格在 SVG 文字里会合并成一个
+  const score = m.score === null ? null : Math.round(m.score);
+  const label = score === null ? (m.isV6 ? 'IPv6 不评分' : '暂无评分') : `${score}%\u00A0\u00A0${m.band.name}`;
+  const fill = score === null ? TICK_GRAY : m.band.color;
+  const bw = Math.ceil((textEm(label) + 1.5) * f);
+  const x = score === null ? (x0 + x1) / 2 : x0 + position(score, m.band) * (x1 - x0);
+  const bx = Math.min(Math.max(x - bw / 2, x0), x1 - bw);
+  let badge = `<rect x="${r(bx)}" y="0" width="${bw}" height="${badgeH}" rx="${r(f * 0.2)}" fill="${fill}"/>` +
+    `<text x="${r(bx + bw / 2)}" y="${r(badgeH / 2 + f * 0.36)}" text-anchor="middle" font-size="${f}" font-weight="700" fill="#FFFFFF">${label}</text>`;
+  if (score !== null) {
+    const base = Math.min(Math.max(x, bx + arrowW / 2), bx + bw - arrowW / 2);
+    const tip = Math.min(Math.max(x, x0 + 0.5), x1 - 0.5);
+    badge += `<path d="M${r(base - arrowW / 2)} ${badgeH - 0.5}L${r(base + arrowW / 2)} ${badgeH - 0.5}L${r(tip)} ${badgeH + arrowH}Z" fill="${fill}"/>`;
   }
-  return row([T(String(Math.round(m.score)), numberSize, solid(m.band), 'bold')]);
+
+  // 宽高写成 3 倍：万一 Egern 按图片自身尺寸栅格化，缩到框里也够清楚；坐标都在 viewBox 里，单位是 pt
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W * 3}" height="${height * 3}" viewBox="0 0 ${W} ${height}" font-family="${SVG_FONT}">${bar}${ticks}${badge}</svg>`;
+  return { svg, height, badgeH };
 }
 
-function strip(m, height) {
-  const active = m.band ? BANDS.indexOf(m.band) : -1;
-  return row(BANDS.map((band, i) => {
-    const h = i === active ? height + 4 : height;
-    return {
-      type: 'stack',
-      flex: 1,
-      height: h,
-      borderRadius: h / 2,
-      backgroundColor: i === active ? solid(band) : band.faded,
-      children: [],
-    };
-  }), { gap: 3, height: height + 4 });
-}
-
-// 小三角放在亮起那一格的正中间
-function pointer(m, size) {
-  if (!m.band) return null;
-  const height = Math.round(size * 0.8);
-  const mark = { type: 'image', src: 'sf-symbol:triangle.fill', width: size, height, color: C.ink };
-  return fiveCells(band => (band === m.band ? [spacer(), mark, spacer()] : []), height);
-}
-
-// 每一格下面的档位名，亮起那一格用它的颜色加粗。
-// 行高就取字号：中文字在行框里是上下居中的，字形约占 0.9 个字号，这样字的上沿离行顶只差半点，
-// 小三角到档位名的空隙才看得出和试纸到小三角的一样
-function legend(m, size) {
-  return fiveCells(band => [
-    spacer(),
-    T(band.name, size, band === m.band ? solid(band) : C.faint, band === m.band ? 'semibold' : 'regular'),
-    spacer(),
-  ], size);
-}
-
-// 试纸、小三角、档位名从上到下，三者之间的空隙一样大（s.space）
-function scale(m, s) {
-  return [
-    strip(m, s.bar),
-    spacer(s.space),
-    pointer(m, s.pointer),
-    m.band ? spacer(s.space) : null,
-    legend(m, s.legend),
-  ];
-}
-
-function scaleHeight(m, s) {
-  return s.bar + 4 + s.space + (m.band ? Math.round(s.pointer * 0.8) + s.space : 0) + s.legend;
-}
-
-// 读数左右居中；shift 是要往下挪的点数：给读数加上边距（内容整体居中，所以边距取 2 倍）。
-// 不能用固定长度的 spacer 垫：Egern 里它会在横向撑满，带着整列铺满一格，读数就被挤到左边了。
-// 没有分数时显示的是中文提示，不用挪
-function readingBlock(m, s, shift, height) {
-  const body = reading(m, s.number, s.note);
-  const pad = m.score === null ? 0 : Math.round(shift * 2);
-  const moved = pad > 0 ? { ...body, padding: [pad, 0, 0, 0] } : body;
-  return { type: 'stack', direction: 'row', children: [spacer(), moved, spacer()], ...(height ? { height } : {}) };
-}
-
-// 小号、大号：读数居中放在试纸上方。读数的框只比数字略高（0.75 个字号），再把读数往下挪到
-// 数字正好占满这个框、下沿就是基线；这样读数到试纸的空隙就和试纸到小三角的一样（s.space）
-function gauge(m, s) {
-  const height = Math.round(s.number * 0.75);
-  const shift = height / 2 - 0.01 * s.number - baselineBelowCenter(s.number);
-  return [
-    readingBlock(m, s, shift, height),
-    spacer(s.space),
-    ...scale(m, s),
-  ];
+// 色条图片：横向铺满，按宽度等比缩放（contain）。Egern 不告诉脚本小组件有多宽，
+// 所以框比画布高 12%：最宽的手机（Pro Max）上也是宽度先铺满，别的手机上下各空出一点。
+// 位置都按比例，不会偏；宽一些的手机上字也跟着大一点，色条两端跟内容最多差一点。框有 flex，所以这一行写明高度
+function meter(m, p) {
+  const { svg, height, badgeH } = meterSvg(m, p);
+  const frame = Math.ceil(height * 1.12);
+  const src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg).replace(/'/g, '%27');
+  const view = row([{ type: 'image', src, resizable: true, resizeMode: 'contain', flex: 1, height: frame }], { height: frame });
+  return { view, frame, height, badgeH };
 }
 
 // ───────────────────────────── 布局 ─────────────────────────────
@@ -427,45 +428,35 @@ function root(children, padding, m) {
   };
 }
 
+// 小号：根容器不留左右边距，改到各行上（side），色条的画布才能横跨整个小组件
 function smallWidget(m) {
+  const side = el => ({ ...el, padding: [0, 13, 0, 13] });
   return root([
-    placeRow(m, 12, false),
+    side(placeRow(m, 12, false)),
     spacer(3),
-    ipRow(m, 14, 9),
+    side(ipRow(m, 14, 9)),
     spacer(),
-    ...gauge(m, { number: 28, note: 11, bar: 5, pointer: 8, legend: 9, space: 5 }),
+    meter(m, METER.small).view,
     spacer(),
-    row(traits(m).map(t => traitView(t, 10)), { gap: 9 }),
-  ], [12, 13, 11, 13], m);
+    side(row(traits(m).map(t => traitView(t, 10)), { gap: 9 })),
+  ], [12, 0, 11, 0], m);
 }
 
-// 中号：顶行地区和时间；中间两行左右分栏（左 4 右 3）。第一行左边 IP（靠左，不加标签）、右边分数，
-// 两者同字号、基线对齐；第二行左边「ASN」「运营商」（标签和值都是 10pt）、右边试纸；底行类型和名称。
-// 中间两行都写明高度，上下多出的空间由 spacer 平分
+// 中号：顶行地区和时间；中间左右分栏（40:37，参考尺寸下左 160、右 148）：左边 IP（靠左，不加标签）、ASN、
+// 运营商（标签和值都是 10pt），右边色条，标签的中线跟 IP 那一行的中线对齐；底行类型和名称。
+// 右边距放在顶行和底行上，右栏的画布伸到小组件右边缘。中间这一行写明高度，上下多出的空间由 spacer 平分
 function mediumWidget(m) {
-  const s = { number: 20, note: 12, bar: 6, pointer: 10, legend: 10, space: 6 };
   const ipSize = 20;
   const labelWidth = 32;
   const labelSize = 10;
-  const columns = (left, right, extra) => row([
-    { ...(left || { type: 'stack', children: [] }), flex: 4 },
-    { ...right, flex: 3 },
-  ], { gap: 14, ...extra });
 
-  // 第一行高度不能小于 IP 的行高，否则带 minScale 的 IP 会被缩小。
-  // IP 和分数都居中摆，分数往下挪一点，让两边的基线落在同一条线上
+  // IP 那一行不能矮于 IP 的行高，否则带 minScale 的 IP 会被缩小
   const headHeight = Math.ceil(lineHeight(ipSize));
-  const ipBaseline = baselineBelowCenter(ipSize);
-  const headline = columns(
-    ipText(m, ipSize),
-    readingBlock(m, s, ipBaseline - baselineBelowCenter(s.number)),
-    { height: headHeight },
-  );
 
   // ASN 在上，运营商在下；运营商名称太长时折成两行（按最窄的中号估算）
   const valueSize = 10;
   const ipGap = 12; // IP 和 ASN 之间多留的空隙
-  const orgLines = m.org && estimateWidth(m.org, valueSize) > 128 ? 2 : 1;
+  const orgLines = m.org && estimateWidth(m.org, valueSize) > 122 ? 2 : 1;
   const asnHeight = 14;
   const orgHeight = orgLines === 2 ? 27 : 14;
   const asnRow = m.asn
@@ -474,28 +465,33 @@ function mediumWidget(m) {
   const orgRow = m.org
     ? { ...field('运营商', T(m.org, valueSize, C.ink, 'semibold', { maxLines: orgLines }), labelWidth, labelSize), height: orgHeight }
     : null;
-  const leftHeight = ipGap + (asnRow ? asnHeight : 0) + (orgRow ? orgHeight : 0) + (asnRow && orgRow ? 6 : 0);
-  const details = columns(
-    asnRow || orgRow ? col([spacer(ipGap), asnRow, asnRow && orgRow ? spacer(6) : null, orgRow, spacer()]) : null,
-    col([...scale(m, s), spacer()]),
-    { alignItems: 'start', height: Math.max(scaleHeight(m, s), leftHeight) },
-  );
-  // 分数基线到试纸的空隙也取 s.space，跟试纸到小三角一样
-  const belowBaseline = headHeight / 2 - ipBaseline;
+  const hasDetails = asnRow || orgRow;
+  const leftHeight = headHeight + (hasDetails ? ipGap : 0) + (asnRow ? asnHeight : 0) + (orgRow ? orgHeight : 0) + (asnRow && orgRow ? 6 : 0);
+  const left = col([
+    row([ipText(m, ipSize, { flex: 1 })], { height: headHeight }),
+    hasDetails ? spacer(ipGap) : null,
+    asnRow,
+    asnRow && orgRow ? spacer(6) : null,
+    orgRow,
+    spacer(),
+  ]);
+
+  // 图片在框里上下居中，参考宽度下上面空出 (frame - height) / 2；再往下挪一点，让标签中线落在 IP 那一行中间
+  const gauge = meter(m, METER.medium);
+  const lift = Math.max(0, Math.round(headHeight / 2 - (gauge.frame - gauge.height) / 2 - gauge.badgeH / 2));
+  const right = col([lift ? spacer(lift) : null, gauge.view, spacer()]);
 
   return root([
-    placeRow(m, 13, true),
+    { ...placeRow(m, 13, true), padding: [0, 16, 0, 0] },
     spacer(),
-    headline,
-    spacer(Math.max(0, Math.round(s.space - belowBaseline))),
-    details,
+    row([{ ...left, flex: 40 }, { ...right, flex: 37 }], { gap: 14, alignItems: 'start', height: Math.max(leftHeight, lift + gauge.frame) }),
     spacer(),
     row([
       ...traits(m).map(t => traitView(t, 10)),
       spacer(),
       m.name ? T(m.name, 10, C.faint, 'medium', { minScale: 0.7 }) : null,
-    ], { gap: 10 }),
-  ], [14, 16, 13, 16], m);
+    ], { gap: 10, padding: [0, 16, 0, 0] }),
+  ], [14, 0, 13, 16], m);
 }
 
 function detail(label, value, good) {
@@ -505,26 +501,28 @@ function detail(label, value, good) {
   ], { gap: 8, height: 20 }); // 不低于中文的行高，否则带 minScale 的文字会被缩小
 }
 
+// 大号：跟小号一样，左右边距放在各行上，色条的画布横跨整个小组件
 function largeWidget(m) {
   const kinds = traits(m);
   const source = kinds.find(t => t.short === '原生' || t.short === '广播');
   const kind = kinds.find(t => t.short === '住宅' || t.short === '机房');
+  const side = el => ({ ...el, padding: [0, 16, 0, 16] });
   return root([
-    placeRow(m, 16, true),
+    side(placeRow(m, 16, true)),
     spacer(4),
-    ipRow(m, 22, 12),
+    side(ipRow(m, 22, 12)),
     spacer(),
-    ...gauge(m, { number: 56, note: 14, bar: 11, pointer: 13, legend: 12, space: 7 }),
+    meter(m, METER.large).view,
     spacer(),
-    col([
+    side(col([
       detail('类型', kind ? kind.long : '未知', kind?.good),
       detail('来源', source ? source.long : '未知', source?.good),
       detail('ASN', m.asn || '未知'),
       detail('运营商', m.org || '未知'),
       m.timezone ? detail('时区', m.timezone) : null,
       detail('检测', m.policy ? `策略「${m.policy}」` : '跟随分流规则'),
-    ], { gap: 6 }),
-  ], [16, 16, 15, 16], m);
+    ], { gap: 6 })),
+  ], [16, 0, 15, 0], m);
 }
 
 // ───────────────────────────── 锁屏 ─────────────────────────────
@@ -557,7 +555,7 @@ function circularWidget(m) {
       children: [
         spacer(),
         center(T(m.score === null ? '—' : String(Math.round(m.score)), 18, null, 'bold')),
-        center(T(m.band ? m.band.name : m.isV6 ? 'IPv6' : '未评分', 9, null, 'medium')),
+        center(T(m.band ? m.band.short : m.isV6 ? 'IPv6' : '未评分', 9, null, 'medium')),
         spacer(),
       ],
     }],
@@ -575,7 +573,7 @@ function rectangularWidget(m) {
       row([T(m.flag, 12), T([m.country, m.city].filter(Boolean).join(' '), 13, null, 'semibold', { minScale: 0.6 })], { gap: 4 }),
       row([
         T(m.score === null ? '—' : String(Math.round(m.score)), 17, null, 'bold'),
-        T(m.band ? m.band.name : m.isV6 ? 'IPv6 不评分' : '暂无评分', 12, null, 'semibold'),
+        T(m.band ? m.band.short : m.isV6 ? 'IPv6 不评分' : '暂无评分', 12, null, 'semibold'),
       ], { gap: 4 }),
       T(kinds || m.shownIP, 12, null, 'regular', { minScale: 0.6 }),
     ],
@@ -583,7 +581,7 @@ function rectangularWidget(m) {
 }
 
 function inlineWidget(m) {
-  const score = m.score === null ? '' : `${Math.round(m.score)} ${m.band.name}`;
+  const score = m.score === null ? '' : `${Math.round(m.score)} ${m.band.short}`;
   const text = [m.flag, score || (m.isV6 ? 'IPv6 不评分' : '暂无评分'), ...traits(m).map(t => t.short)].join(' ');
   return { type: 'widget', url: SITE_URL, refreshAfter: refreshAt(m.refreshMinutes), children: [T(text, 12, null)] };
 }
