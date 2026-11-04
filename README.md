@@ -70,7 +70,7 @@ Optional env:
 POLICY: "Proxy"         # policy group or node to check; empty follows routing rules
 MARK_IP: "true"         # false shows the full IP
 REFRESH_MINUTES: "10"
-LABEL: "Tokyo"          # tells widgets apart: next to the IP, bottom right on medium; defaults to the policy name
+LABEL: "Tokyo"          # tells widgets apart: bottom right on small and medium, not on large; defaults to the policy name
 ```
 
 The widget draws the same meter as ippure.com, as one SVG: six equal bands in
@@ -123,13 +123,13 @@ The medium widget has location and time on top, the IP, ASN and 运营商 on the
 left, and the meter on the right with its label level with the IP. The IP type
 and the `LABEL` name are at the bottom.
 
-The large widget has location and time on top, then the IP in 22pt with the
-`LABEL` name on its right. The IP sits 18pt above the meter, so the two read as
-one group, and the height left over is split between the gap under the top row
-and the gap above the details. The meter's label is 15pt there, smaller than the
-IP. The details list 属性, 来源, ASN, 运营商 and 检测, with labels and values
-both in 13pt and told apart by color; 属性 and 来源 say only 机房 or 广播 IP, with
-no explanation after them.
+The large widget has location and time on top, then the IP in 22pt. It leaves
+out the `LABEL` name, since its 检测 row already names the policy. The IP sits
+18pt above the meter, so the two read as one group, and the height left over is
+split between the gap under the top row and the gap above the details. The
+meter's label is 15pt there, smaller than the IP. The details list 属性, 来源,
+ASN, 运营商 and 检测, with labels and values both in 13pt and told apart by
+color; 属性 and 来源 say only 机房 or 广播 IP, with no explanation after them.
 
 Lock-screen widgets show the score and a two-character band name (极净, 纯净,
 中性, 轻险, 中险, 极险), since the system tints them in one color.

@@ -26,7 +26,7 @@
  *   POLICY           检测哪个策略组或节点的出口 IP；留空按 Egern 分流规则
  *   MARK_IP          IP 打码，默认 true
  *   REFRESH_MINUTES  刷新间隔（分钟），默认 10
- *   LABEL            名称，用来区分多个小组件（小号、大号在 IP 右边，中号在右下角）；不填时显示检测策略名
+ *   LABEL            名称，用来区分多个小组件（小号、中号在右下角；大号不显示，「检测」那一行已经写了策略）；不填时显示检测策略名
  */
 
 const API_URL = 'https://my.ippure.com/v1/info';
@@ -453,14 +453,6 @@ function ipText(m, size, extra = {}) {
   return T(m.shownIP, size, C.ink, 'bold', { minScale: m.shownIP.length > 18 ? 0.4 : 0.6, ...extra });
 }
 
-// IP 占满剩下的宽度（太长时才能缩小），名称贴右；行里有 flex，所以写明行高
-function ipRow(m, size, nameSize) {
-  return row([
-    ipText(m, size, { flex: 1 }),
-    m.name ? T(m.name, nameSize, C.faint, 'medium', { minScale: 0.7 }) : null,
-  ], { gap: 5, height: Math.ceil(size * 1.3) });
-}
-
 // 「标签 + 值」一行：标签浅灰小字、固定宽度，几行的值从同一条竖线开始。
 // 值带 flex（文字在格子里才会靠左、太长时才能缩小），所以这一行会被撑高，用的地方要写明高度
 function field(label, value, labelWidth, labelSize) {
@@ -611,7 +603,8 @@ function detail(label, value, good) {
 }
 
 // 大号：跟小号一样，左右边距放在各行上，色条的画布横跨整个小组件。
-// IP 和纯净度挨在一起（固定空 18），算一组；顶行和 IP 之间、纯净度和详情之间各放一个 spacer，平分剩下的高度
+// IP 和纯净度挨在一起（固定空 18），算一组；顶行和 IP 之间、纯净度和详情之间各放一个 spacer，平分剩下的高度。
+// IP 右边不放名称：下面「检测」那一行已经写了策略
 function largeWidget(m) {
   const kinds = traits(m);
   const source = kinds.find(t => t.short === '原生' || t.short === '广播');
@@ -620,7 +613,7 @@ function largeWidget(m) {
   return root([
     side(placeRow(m, 16, true)),
     spacer(),
-    side(ipRow(m, 22, 12)),
+    side(heroIP(m, 22)),
     spacer(18),
     meter(m, METER.large).view,
     spacer(),
