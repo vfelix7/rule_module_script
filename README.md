@@ -113,6 +113,12 @@ on AS2497 comes back as Stacks Inc.), so it is only the fallback. The holder is
 cached per ASN for 30 days in Egern's storage, and a failed lookup is tried
 again after an hour.
 
+The small widget has the location and time in small gray type on top, then the
+IP in 17pt bold with its operator below it in gray. The meter is smaller there
+and has no ticks, and sits halfway between the operator and the bottom row,
+which has the IP type on the left and the `LABEL` name on the right. A long
+operator name wraps to a second line instead of shrinking.
+
 The medium widget has location and time on top, the IP, ASN and 运营商 on the
 left, and the meter on the right with its label level with the IP. The IP type
 and the `LABEL` name are at the bottom. Lock-screen widgets show the score and a

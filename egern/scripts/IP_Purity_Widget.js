@@ -352,9 +352,9 @@ const SVG_FONT = "-apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif";
 
 // 色条参数（pt，按 iPhone 15/16 的尺寸）：width 是画布宽度，inset 是色条离画布左右两边的距离。
 // 画布一直伸到小组件右边缘（小号、大号左右都伸到边），色条两端仍跟上下几行的内容对齐，
-// 100 才能像官网那样居中在色条末端、往外伸出一点。font 是标签字号，bar 是色条厚度，tick 是刻度字号
+// 100 才能像官网那样居中在色条末端、往外伸出一点。font 是标签字号，bar 是色条厚度，tick 是刻度字号（0 不画刻度）
 const METER = {
-  small: { width: 158, inset: [13, 13], font: 11, bar: 6, tick: 8.5 },
+  small: { width: 158, inset: [13, 13], font: 10, bar: 4, tick: 0 }, // 小号的纯净度只当配角，缩小、不画刻度
   medium: { width: 148, inset: [0, 16], font: 11, bar: 6, tick: 8.5 },
   large: { width: 338, inset: [16, 16], font: 20, bar: 10, tick: 12 },
 };
@@ -393,7 +393,7 @@ function meterSvg(m, p) {
   // （标签里的粗体字没有这个偏差），所以基线先往上挪回来；画布底下再多留 0.3 个字号，偏差再大一点也不会被裁
   const tickShift = p.tick * 0.17;
   const tickBase = barY + p.bar + Math.round(p.tick * 0.35) + p.tick * 0.7 - tickShift;
-  const height = Math.ceil(tickBase + tickShift + p.tick * 0.3);
+  const height = p.tick ? Math.ceil(tickBase + tickShift + p.tick * 0.3) : barY + p.bar + 1;
 
   // 相邻两段多画半点，免得接缝处透出底色
   const bar = BANDS.map((band, i) => {
@@ -401,7 +401,7 @@ function meterSvg(m, p) {
     return `<rect x="${r(x0 + i * segment)}" y="${barY}" width="${r(w)}" height="${p.bar}" fill="${band.color}"/>`;
   }).join('');
 
-  const ticks = TICKS.map((t, i) => {
+  const ticks = !p.tick ? '' : TICKS.map((t, i) => {
     const anchor = i === 0 ? 'start' : 'middle';
     return `<text x="${r(x0 + i * segment)}" y="${r(tickBase)}" text-anchor="${anchor}" font-size="${p.tick}" fill="${TICK_GRAY}">${t}</text>`;
   }).join('');
@@ -498,18 +498,56 @@ function root(children, padding, m) {
   };
 }
 
-// 小号：根容器不留左右边距，改到各行上（side），色条的画布才能横跨整个小组件
+// 标题行：国旗、国家（次要色）、城市（浅色），右边是名称和时间（浅色）。字比 IP 小，只当说明，不跟 IP 抢
+function captionRow(m, size, withCity, name) {
+  return row([
+    T(m.flag, size),
+    T(m.country, size, C.soft, 'semibold'),
+    withCity && m.city ? T(m.city, size, C.faint, 'medium', { minScale: 0.6 }) : null,
+    spacer(),
+    name ? T(name, size - 1, C.faint, 'medium', { minScale: 0.7 }) : null,
+    T(m.time, size - 1, C.faint, 'medium'),
+  ], { gap: 5 });
+}
+
+// IP 单独一行。行里有 flex 的文字，所以写明行高（不能小于字的行高，否则会被缩小）
+function heroIP(m, size) {
+  return row([ipText(m, size, { flex: 1 })], { height: Math.ceil(lineHeight(size)) });
+}
+
+// 小号 IP 下面的运营商：不加标签，跟 IP 左对齐，用次要色当补充说明；放不下时自己折成两行。
+// 不用 flex、不写行高：写死两行高度时，一行放得下的名称会在框里上下居中，跟 IP 之间平白多出半行空隙；
+// 后面垫一个 spacer，这一行才会铺满、文字靠左
+function smallOrg(m, size) {
+  if (!m.org) return null;
+  return row([T(m.org, size, C.soft, 'medium', { maxLines: 2 }), spacer()], { alignItems: 'start' });
+}
+
+// 底行：左边类型，右边名称（跟中号一样）
+function footRow(m, size) {
+  return row([
+    ...traits(m).map(t => traitView(t, size)),
+    spacer(),
+    m.name ? T(m.name, size - 1, C.faint, 'medium', { minScale: 0.7 }) : null,
+  ], { gap: 8 });
+}
+
+// 小号：上半部是标题（地区、时间）、IP 和运营商；纯净度缩小、不画刻度，放在运营商和底行正中间；
+// 底行左边类型、右边名称。根容器不留左右边距，改到各行上（side），色条的画布才能横跨整个小组件
 function smallWidget(m) {
   const side = el => ({ ...el, padding: [0, 13, 0, 13] });
+  const org = smallOrg(m, 10.5);
   return root([
-    side(placeRow(m, 12, false)),
-    spacer(3),
-    side(ipRow(m, 14, 9)),
+    side(captionRow(m, 12, false)),
+    spacer(9),
+    side(heroIP(m, 17)),
+    org ? spacer(7) : null,
+    org ? side(org) : null,
     spacer(),
     meter(m, METER.small).view,
     spacer(),
-    side(row(traits(m).map(t => traitView(t, 10)), { gap: 9 })),
-  ], [12, 0, 11, 0], m);
+    side(footRow(m, 10)),
+  ], [13, 0, 12, 0], m);
 }
 
 // 中号：顶行地区和时间；中间左右分栏（40:37，参考尺寸下左 160、右 148）：左边 IP（靠左，不加标签）、ASN、
