@@ -1,0 +1,16 @@
+name: "脚本性能测试"
+description: "和 Surge 对比脚本引擎：/bench/light 测每次调用的固定开销，/bench/heavy 测计算速度"
+author: "vfelix7"
+icon: "stopwatch"
+
+scriptings:
+  - http_request:
+      name: "script-bench"
+      match: "^http://example\\.com/bench/"
+      script_url: "https://raw.githubusercontent.com/vfelix7/rule_module_script/refs/heads/master/egern/scripts/Script_Bench.js"
+      update_interval: 86400
+      timeout: 10
+
+# 用快捷指令请求 http://example.com/bench/light?i=<序号> 和 http://example.com/bench/heavy?i=<序号>。
+# 脚本直接返回响应，不走网络；heavy 返回脚本内部耗时，括号里的校验值应与 Surge 版一致。
+# 测完关掉本模块。
