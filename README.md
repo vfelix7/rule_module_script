@@ -275,3 +275,56 @@ a 2-hour latency chart for up to 2 servers (needs 三网详情, on by default), 
 a traffic bar with a depletion estimate. The small widget shows one server's
 ISP latency and traffic, or average latency and traffic for up to 3 servers.
 On the lock screen, the circular widget shows the highest traffic usage.
+
+## Tools
+
+### Script Bench
+
+Compares the script engines of Surge and Egern with the same workload.
+
+- Surge script: `surge/scripts/Script_Bench_Surge.js`
+- Surge module: `surge/module/Script_Bench_Surge.sgmodule`
+- Egern script: `egern/scripts/Script_Bench.js`
+- Egern module: `egern/module/Script_Bench.yaml`
+
+Module URLs:
+
+```text
+https://raw.githubusercontent.com/vfelix7/rule_module_script/refs/heads/master/surge/module/Script_Bench_Surge.sgmodule
+https://raw.githubusercontent.com/vfelix7/rule_module_script/refs/heads/master/egern/module/Script_Bench.yaml
+```
+
+Surge module argument:
+
+```text
+Engine: auto   # auto (what your other scripts use), jsc or webview
+```
+
+Both are request scripts on `^http://example\.com/bench/` that answer the
+request themselves, so nothing leaves the phone and the line does not affect
+the result:
+
+- `/bench/light` returns `ok` at once. Its round trip is the fixed cost of one
+  script call: starting the engine and passing data in and out.
+- `/bench/heavy` builds a 380 KB JSON, then 10 times parses it, drops the "ad"
+  items, serializes it and runs a regex replace, and returns how long that took
+  inside the script, such as `85 ms (3102830)`. The number in brackets is a
+  checksum and must be the same in both apps.
+
+The two scripts share the same `heavyWork()` and differ only in how they read
+the request and answer it (`$request` and `$done` in Surge, `ctx.request` and
+`ctx.respond` in Egern), so change both files together.
+
+Measure with Shortcuts rather than Safari, since Safari may upgrade `http://`
+to HTTPS and the pattern then no longer matches:
+
+- Light: Date, then Repeat 200 times Get Contents of URL
+  `http://example.com/bench/light?i=` + Repeat Index, then Date. Get Time
+  Between Dates in seconds and multiply by 5 for milliseconds per call.
+- Heavy: Repeat 10 times Get Contents of URL
+  `http://example.com/bench/heavy?i=` + Repeat Index and collect the results.
+  Drop the first and take the median.
+
+Run three sets, Surge with `Engine: auto`, Surge with `Engine: jsc` and Egern,
+three rounds each, with only this module on and Low Power Mode off. Turn the
+module off when you are done.

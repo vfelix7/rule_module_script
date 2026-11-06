@@ -1,0 +1,8 @@
+#!name=脚本性能测试
+#!desc=和 Egern 对比脚本引擎：用快捷指令请求 http://example.com/bench/light 测每次调用的固定开销，/bench/heavy 测计算速度。测完关掉本模块。
+#!category=测试
+#!arguments=Engine:auto
+#!arguments-desc=Engine: 脚本引擎，auto（默认，和你其他脚本用的一样）/ jsc / webview
+
+[Script]
+script-bench = type=http-request, pattern=^http://example\.com/bench/, engine={{{Engine}}}, timeout=10, script-path=https://raw.githubusercontent.com/vfelix7/rule_module_script/refs/heads/master/surge/scripts/Script_Bench_Surge.js, script-update-interval=86400
