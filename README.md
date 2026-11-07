@@ -56,6 +56,7 @@ routing, the TLS version, and captive portals.
 - Script: `egern/scripts/IP_Purity_Widget.js`
 - Module: `egern/module/IP_Purity_Widget.yaml`
 - Surge module: `surge/module/IP_Purity_Surge.sgmodule`
+- Surge panel with the widget's bands: `surge/module/IPPure_Surge.sgmodule`
 - Data source: `https://my.ippure.com/v1/info`
 
 Module URL:
@@ -141,10 +142,28 @@ In Egern, an element with `flex` fills both directions, even when it has a
 `height`, so a row that holds one grows taller and squeezes the spacers next to
 it to zero. Every row here that holds `flex` children has an explicit height.
 
+Surge panel module, with the same bands, colors and operator lookup as the
+widget:
+
+```text
+https://raw.githubusercontent.com/vfelix7/rule_module_script/refs/heads/master/surge/module/IPPure_Surge.sgmodule
+```
+
+Its arguments are `Proxy`, the policy group or node to check (empty follows
+Surge's rules), and `MarkIP` (default `true`). The title gives the score and the
+site's band name, and the icon takes the band's color; IPv6 shows 不评分 with a
+gray icon. Below are the IP and location, then 属性, 来源, ASN and 运营商, one per
+line. A panel shows plain text in a proportional font, so the labels are padded
+with full-width spaces to four characters wide and the values start in one
+column; there is no meter. The holder is cached per ASN in `$persistentStore`,
+as in the widget. The older `IP_Purity_Surge.sgmodule` is unchanged, and the
+two use different panel and script names, so both can be enabled.
+
 ### Media & AI Unlock
 
 - Script: `egern/scripts/Media_AI_Unlock_Widget.js`
 - Module: `egern/module/Media_AI_Unlock_Widget.yaml`
+- Surge module: `surge/module/Media_AI_Unlock_Surge.sgmodule`
 
 Module URL:
 
@@ -183,6 +202,25 @@ counts. Failed checks show the reason in the badge and the failing host with
 the status or raw error at the bottom. The `ms` value is how long the whole
 check took, not node latency. Small, medium, large and lock-screen sizes are
 supported.
+
+Surge panel module:
+
+```text
+https://raw.githubusercontent.com/vfelix7/rule_module_script/refs/heads/master/surge/module/Media_AI_Unlock_Surge.sgmodule
+```
+
+It runs the same checks. Its arguments `Proxy`, `StreamingProxy` and `AIProxy`
+work like the env above, and all can be left empty to follow Surge's rules. The
+title gives how many services passed. Each service gets a line that starts with
+a status dot (🟢 available, 🟡 partial or unverified, 🔴 locked or failed) and
+the region's flag, or 🌐 when no region was found: the panel's text is
+proportional, but these emoji are all the same width, so the service names line
+up. A note such as 仅自制剧, 锁定 or 超时 follows the name, then the check's
+time. The last lines name the policy and the time, and for up to two failed
+checks the host and the raw error. The panel refreshes every 30 minutes.
+Surge's `$httpClient` returns 4xx responses as usual and scripts have no `URL`,
+so redirects are followed by hand; a check still running after 36 seconds is
+reported as 超时, so the rest still show before the module's 40-second timeout.
 
 ### Codex Usage
 
