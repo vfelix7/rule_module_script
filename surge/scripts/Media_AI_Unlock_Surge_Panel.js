@@ -13,8 +13,8 @@
  *
  * 面板：标题写通过几项，下面每项一行：开头是状态（🟢 可用，🟡 部分可用或待验证，🔴 锁定或请求失败）和地区的国旗，
  * 然后是服务名、说明和这一项检测花的时间。面板文字是比例字体，空格对不齐表格，所以把等宽的 emoji 放在最前面，
- * 两列 emoji 和后面的服务名都能对齐。请求失败时最后几行写断在哪个域名和原始报错。点面板可以手动刷新。
- * 面板里不写检测用的策略和时间。
+ * 两列 emoji 和后面的服务名都能对齐。点面板可以手动刷新。
+ * 面板里不写检测用的策略、时间和原始报错；请求失败时断在哪个域名、原始报错写进 Surge 的脚本日志。
  *
  * 参数（模块里填）：
  *   Proxy           所有检测都走这个策略或策略组；默认「跟随规则」，按 Surge 规则走，结果就是「现在打开它会怎样」
@@ -250,7 +250,7 @@ function errorLabel(message) {
   return '网络错误';
 }
 
-// 请求没拿到可用结果时：标签写原因，面板最后写域名 + 原始报错
+// 请求没拿到可用结果时：服务名后面写原因，域名 + 原始报错写进脚本日志
 function failed(state, region, ms, response) {
   if (!response) return result(state, region, ms);
   const host = hostOf(response.url);
@@ -522,7 +522,7 @@ async function checkGemini(policy) {
   if (place) return result('ok', region, rpc.ms); // 定位接口给出了地区，且不在不支持名单里
   if (page.ok && okStatus(page.status)) return result(region ? 'ok' : 'unknown', region, hops.ms);
 
-  // 两路都没结论：标签写页面的原因，最后几行写两路各自的结果
+  // 两路都没结论：服务名后面写页面的原因，脚本日志里写两路各自的结果
   const note = r => (r.ok ? `HTTP ${r.status}${bodyHint(r.body)}` : String(r.error || '无响应').slice(0, 40));
   return result(page.ok && (page.status === 403 || page.status === 429) ? 'unknown' : 'error', region, Math.max(hops.ms, rpc.ms), {
     detail: page.ok ? `HTTP ${page.status}` : page.timedOut ? '超时' : errorLabel(page.error),
@@ -556,11 +556,10 @@ function panel(items) {
     const text = note(item.info);
     return `${DOTS[item.info.state] || '⚪️'} ${flag(item.info.region)} ${item.name}${text ? ` ${text}` : ''} · ${seconds(item.info.ms)}`;
   });
-  // 请求失败、待验证的写出断在哪个域名和原始报错，最多两行
+  // 请求失败、待验证的：断在哪个域名和原始报错只写进脚本日志，面板上只留服务名后面的简短原因
   items
     .filter(item => (item.info.state === 'error' || item.info.state === 'unknown') && item.info.debug)
-    .slice(0, 2)
-    .forEach(item => lines.push(`${item.name}：${item.info.debug}`));
+    .forEach(item => console.log(`${item.name}：${item.info.debug}`));
   const color = passed === items.length ? COLORS.ok : passed === 0 ? COLORS.none : COLORS.some;
   return { title: `${TITLE} ${passed}/${items.length}`, content: lines.join('\n'), icon: ICON, 'icon-color': color };
 }

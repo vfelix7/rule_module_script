@@ -153,12 +153,13 @@ Its arguments are `Proxy`, the policy group or node to check, and `MarkIP`
 (default `true`). Surge refuses a module argument with an empty default, so
 `Proxy` defaults to `跟随规则`, which follows Surge's rules. The title gives the
 score and the site's band name, and the icon takes the band's color; IPv6 shows
-不评分 with a gray icon. Below are the IP, then 属性, 来源, ASN, 位置 and 运营商, one per
-line. A panel shows plain text in a proportional font, so the labels are padded
-with full-width spaces to four characters wide and the values start in one
-column; there is no meter. The holder is cached per ASN in `$persistentStore`,
-as in the widget. The older `IP_Purity_Surge.sgmodule` is unchanged, and the two
-use different panel and script names, so both can be enabled.
+不评分 with a gray icon. Below are the IP, labeled IPv4 or IPv6, then 属性, 来源, ASN,
+位置 and 运营商, one per line. A panel shows plain text in a proportional font, so
+the labels are padded with full-width spaces to four characters wide and the
+values start in one column; there is no meter. The holder is cached per ASN in
+`$persistentStore`, as in the widget. The older `IP_Purity_Surge.sgmodule` is
+unchanged, and the two use different panel and script names, so both can be
+enabled.
 
 ### Media & AI Unlock
 
@@ -219,12 +220,12 @@ services passed. Each service gets a line that starts with a status dot (🟢
 available, 🟡 partial or unverified, 🔴 locked or failed) and the region's flag,
 or 🌐 when no region was found: the panel's text is proportional, but these emoji
 are all the same width, so the service names line up. A note such as 仅自制剧, 锁定 or
-超时 follows the name, then the check's time. For up to two failed checks, the
-last lines give the host and the raw error; the panel does not name the policy
-or the time. The panel refreshes every 30 minutes. Surge's `$httpClient` returns
-4xx responses as usual and scripts have no `URL`, so redirects are followed by
-hand; a check still running after 36 seconds is reported as 超时, so the rest
-still show before the module's 40-second timeout.
+超时 follows the name, then the check's time. The panel does not show the policy,
+the time or raw errors: for a failed check it writes the host and the raw error
+to Surge's script log. The panel refreshes every 30 minutes. Surge's
+`$httpClient` returns 4xx responses as usual and scripts have no `URL`, so
+redirects are followed by hand; a check still running after 36 seconds is
+reported as 超时, so the rest still show before the module's 40-second timeout.
 
 ### Codex Usage
 

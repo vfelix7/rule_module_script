@@ -7,7 +7,7 @@
  *   运营商  用 ASN 去 RIPEstat 查 AS 的持有者（跟官网 ASN 那一栏一致），按 ASN 缓存 30 天；
  *           查不到时用 IPPure 的 asOrganization
  *
- * 面板：标题写「分数% 档位名」，图标是官网那一档的颜色；内容第一行是 IP，下面一行一项：
+ * 面板：标题写「分数% 档位名」，图标是官网那一档的颜色；内容一行一项：IP（标签写 IPv4 或 IPv6）、
  * 属性、来源、ASN、位置、运营商。面板只能显示文字，画不出色条。点面板可以手动刷新。
  *
  * 参数（模块里填）：
@@ -212,9 +212,9 @@ function readBool(value) {
 // ───────────────────────────── 面板 ─────────────────────────────
 
 // 「标签　值」一行。面板文字是比例字体，标签用全角空格（一个汉字宽）补到四个汉字宽，值就从同一位置开始：
-// 两个字的标签补两个，运营商补一个；ASN 三个大写字母约两个汉字宽，也补两个
+// 两个字的标签补两个，运营商补一个；ASN、IPv4、IPv6 这样的英文标签约两个汉字宽，也补两个
 function field(label, value) {
-  const width = /^[A-Z]+$/.test(label) ? 2 : label.length;
+  const width = /^[\x20-\x7E]+$/.test(label) ? 2 : label.length;
   return `${label}${'\u3000'.repeat(Math.max(1, 4 - width))}${value || '未知'}`;
 }
 
@@ -224,7 +224,7 @@ function panel(m) {
   const verdict = score === null ? (m.isV6 ? 'IPv6 不评分' : '暂无评分') : `${score}% ${m.band.name}`;
   const place = [m.flag, m.country, m.city].filter(Boolean).join(' ');
   const lines = [
-    m.shownIP,
+    field(m.isV6 ? 'IPv6' : 'IPv4', m.shownIP),
     field('属性', m.residential === null ? '' : m.residential ? '住宅宽带' : '机房'),
     field('来源', m.broadcast === null ? '' : m.broadcast ? '广播 IP' : '原生 IP'),
     field('ASN', m.asn),
