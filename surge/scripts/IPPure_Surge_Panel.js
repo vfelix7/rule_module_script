@@ -11,7 +11,7 @@
  * 一行一项：属性、来源、ASN、运营商。面板只能显示文字，画不出色条。点面板可以手动刷新。
  *
  * 参数（模块里填）：
- *   Proxy   检测哪个策略组或节点的出口 IP；留空按 Surge 规则
+ *   Proxy   检测哪个策略组或节点的出口 IP；默认「跟随规则」，按 Surge 规则走
  *   MarkIP  IP 打码，默认 true
  */
 
@@ -57,11 +57,14 @@ class PanelError extends Error {
 
 // ───────────────────────────── 参数 ─────────────────────────────
 
-// 模块传来的是「Proxy=…&MarkIP=…」。策略名里可能有 & 或 =，所以从后往前按参数名切；
-// 留空或没被 Surge 替换的 {{{Proxy}}} 都当没填（按 Surge 规则走）
+// 模块传来的是「Proxy=…&MarkIP=…」。策略名里可能有 & 或 =，所以从后往前按参数名切。
+// Surge 的模块参数不能没有默认值，Proxy 的默认值写「跟随规则」；它、空值和没被替换的 {{{Proxy}}} 都按 Surge 规则走
+const FOLLOW_RULES = '跟随规则';
+
 function readArgs(input) {
   const args = splitArgs(input, ['Proxy', 'MarkIP']);
-  const policy = clean(args.Proxy);
+  const proxy = clean(args.Proxy);
+  const policy = proxy === FOLLOW_RULES ? '' : proxy;
   return {
     policy,
     markIP: !/^(false|0|no|off)$/i.test(clean(args.MarkIP)),

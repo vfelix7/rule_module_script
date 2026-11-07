@@ -1,8 +1,8 @@
 #!name=流媒体与 AI 解锁
 #!desc=检测 YouTube Premium、Netflix、Disney+、ChatGPT、Claude、Gemini 在当前分流或指定策略下是否解锁。每次检测约下载 2–3 MB。
 #!category=网络检测
-#!arguments=Proxy:,StreamingProxy:,AIProxy:
-#!arguments-desc=Proxy：所有检测都走这个策略或策略组，留空按 Surge 规则\nStreamingProxy：只给 YouTube、Netflix、Disney+ 指定策略，优先于 Proxy\nAIProxy：只给 ChatGPT、Claude、Gemini 指定策略，优先于 Proxy
+#!arguments=Proxy:跟随规则,StreamingProxy:同Proxy,AIProxy:同Proxy
+#!arguments-desc=Proxy：所有检测都走这个策略或策略组；填「跟随规则」按 Surge 规则走\nStreamingProxy：只给 YouTube、Netflix、Disney+ 指定策略；填「同Proxy」跟 Proxy 一样，填「跟随规则」按 Surge 规则走\nAIProxy：只给 ChatGPT、Claude、Gemini 指定策略；填法同 StreamingProxy
 
 [Panel]
 Media-AI-Unlock-Panel = script-name=media-ai-unlock-surge-panel, title=解锁检测, content=检测中…, style=info, update-interval=1800

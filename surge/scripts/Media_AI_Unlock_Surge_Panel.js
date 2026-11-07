@@ -15,10 +15,10 @@
  * 然后是服务名、说明和这一项检测花的时间。面板文字是比例字体，空格对不齐表格，所以把等宽的 emoji 放在最前面，
  * 两列 emoji 和后面的服务名都能对齐。请求失败时最后几行写断在哪个域名和原始报错。点面板可以手动刷新。
  *
- * 参数（模块里填，都可以留空）：
- *   Proxy           所有检测都走这个策略或策略组；留空按 Surge 规则，结果就是「现在打开它会怎样」
- *   StreamingProxy  只给 YouTube、Netflix、Disney+ 指定策略，优先于 Proxy
- *   AIProxy         只给 ChatGPT、Claude、Gemini 指定策略，优先于 Proxy
+ * 参数（模块里填）：
+ *   Proxy           所有检测都走这个策略或策略组；默认「跟随规则」，按 Surge 规则走，结果就是「现在打开它会怎样」
+ *   StreamingProxy  只给 YouTube、Netflix、Disney+ 指定策略；默认「同Proxy」，填「跟随规则」按 Surge 规则走
+ *   AIProxy         只给 ChatGPT、Claude、Gemini 指定策略；填法同 StreamingProxy
  * 每次检测约下载 2–3 MB，刷新间隔别设太短。
  */
 
@@ -94,15 +94,25 @@ const STARTED = Date.now();
 
 // ───────────────────────────── 参数 ─────────────────────────────
 
-// 模块传来的是「Proxy=…&StreamingProxy=…&AIProxy=…」。策略名里可能有 & 或 =，所以从后往前按参数名切；
-// 留空或没被 Surge 替换的 {{{…}}} 都当没填
+// 模块传来的是「Proxy=…&StreamingProxy=…&AIProxy=…」。策略名里可能有 & 或 =，所以从后往前按参数名切。
+// Surge 的模块参数不能没有默认值：Proxy 默认「跟随规则」（按 Surge 规则走），另外两个默认「同Proxy」。
+// 空值和没被替换的 {{{…}}} 也当没填；分开指定的那两项填「跟随规则」时按规则走，不跟 Proxy
+const FOLLOW_RULES = '跟随规则';
+const SAME_AS_PROXY = '同proxy';
+
 function readArgs(input) {
   const args = splitArgs(input, ['Proxy', 'StreamingProxy', 'AIProxy']);
-  const proxy = clean(args.Proxy);
+  const proxy = pick(args.Proxy, '');
   return {
-    streamingPolicy: clean(args.StreamingProxy) || proxy,
-    aiPolicy: clean(args.AIProxy) || proxy,
+    streamingPolicy: pick(args.StreamingProxy, proxy),
+    aiPolicy: pick(args.AIProxy, proxy),
   };
+}
+
+function pick(value, fallback) {
+  const text = clean(value);
+  if (!text || text.replace(/\s+/g, '').toLowerCase() === SAME_AS_PROXY) return fallback;
+  return text === FOLLOW_RULES ? '' : text;
 }
 
 function splitArgs(input, keys) {
