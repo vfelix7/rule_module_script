@@ -159,10 +159,7 @@ the labels are padded with full-width spaces to four characters wide and the
 values start in one column; there is no meter. The holder is cached per ASN in
 `$persistentStore`, as in the widget. The older `IP_Purity_Surge.sgmodule` is
 unchanged, and the two use different panel and script names, so both can be
-enabled. Surge keeps a downloaded script for a day
-(`script-update-interval=86400`) and does not fetch it again when the module is
-updated with the same script URL, so the module's `script-path` ends in a `?v=`
-date that changes whenever the script does.
+enabled.
 
 ### Media & AI Unlock
 
@@ -228,9 +225,7 @@ the time or raw errors: for a failed check it writes the host and the raw error
 to Surge's script log. The panel refreshes every 30 minutes. Surge's
 `$httpClient` returns 4xx responses as usual and scripts have no `URL`, so
 redirects are followed by hand; a check still running after 36 seconds is
-reported as 超时, so the rest still show before the module's 40-second timeout. As
-with the IP purity panel, its `script-path` ends in a `?v=` date that changes
-with the script.
+reported as 超时, so the rest still show before the module's 40-second timeout.
 
 ### Codex Usage
 

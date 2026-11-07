@@ -8,4 +8,4 @@
 Media-AI-Unlock-Panel = script-name=media-ai-unlock-surge-panel, title=解锁检测, content=检测中…, style=info, update-interval=1800
 
 [Script]
-media-ai-unlock-surge-panel = type=generic, timeout=40, argument=Proxy={{{Proxy}}}&StreamingProxy={{{StreamingProxy}}}&AIProxy={{{AIProxy}}}, script-path=https://raw.githubusercontent.com/vfelix7/rule_module_script/refs/heads/master/surge/scripts/Media_AI_Unlock_Surge_Panel.js?v=20261107, script-update-interval=86400
+media-ai-unlock-surge-panel = type=generic, timeout=40, argument=Proxy={{{Proxy}}}&StreamingProxy={{{StreamingProxy}}}&AIProxy={{{AIProxy}}}, script-path=https://raw.githubusercontent.com/vfelix7/rule_module_script/refs/heads/master/surge/scripts/Media_AI_Unlock_Surge_Panel.js, script-update-interval=86400

@@ -8,4 +8,4 @@
 IPPure-Panel = script-name=ippure-surge-panel, title=IP 纯净度, content=检测中…, style=info, update-interval=600
 
 [Script]
-ippure-surge-panel = type=generic, timeout=15, argument=Proxy={{{Proxy}}}&MarkIP={{{MarkIP}}}, script-path=https://raw.githubusercontent.com/vfelix7/rule_module_script/refs/heads/master/surge/scripts/IPPure_Surge_Panel.js?v=20261107, script-update-interval=86400
+ippure-surge-panel = type=generic, timeout=15, argument=Proxy={{{Proxy}}}&MarkIP={{{MarkIP}}}, script-path=https://raw.githubusercontent.com/vfelix7/rule_module_script/refs/heads/master/surge/scripts/IPPure_Surge_Panel.js, script-update-interval=86400
