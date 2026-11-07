@@ -7,8 +7,8 @@
  *   运营商  用 ASN 去 RIPEstat 查 AS 的持有者（跟官网 ASN 那一栏一致），按 ASN 缓存 30 天；
  *           查不到时用 IPPure 的 asOrganization
  *
- * 面板：标题写「分数% 档位名」，图标是官网那一档的颜色；内容第一行是 IP 和地区，下面跟大号小组件一样，
- * 一行一项：属性、来源、ASN、运营商。面板只能显示文字，画不出色条。点面板可以手动刷新。
+ * 面板：标题写「分数% 档位名」，图标是官网那一档的颜色；内容第一行是 IP，下面一行一项：
+ * 属性、来源、ASN、位置、运营商。面板只能显示文字，画不出色条。点面板可以手动刷新。
  *
  * 参数（模块里填）：
  *   Proxy   检测哪个策略组或节点的出口 IP；默认「跟随规则」，按 Surge 规则走
@@ -224,10 +224,11 @@ function panel(m) {
   const verdict = score === null ? (m.isV6 ? 'IPv6 不评分' : '暂无评分') : `${score}% ${m.band.name}`;
   const place = [m.flag, m.country, m.city].filter(Boolean).join(' ');
   const lines = [
-    `${m.shownIP} · ${place}`,
+    m.shownIP,
     field('属性', m.residential === null ? '' : m.residential ? '住宅宽带' : '机房'),
     field('来源', m.broadcast === null ? '' : m.broadcast ? '广播 IP' : '原生 IP'),
     field('ASN', m.asn),
+    field('位置', place),
     field('运营商', m.org),
   ];
   return {
